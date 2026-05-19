@@ -1,20 +1,24 @@
-/* 移动端适配基础样式 */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  /* 主题变量 */
-  --primary-color: #1989fa;
-  --text-color: #333;
-  --text-color-light: #666;
-  --text-color-lighter: #999;
-  --border-color: #ebedf0;
-  --background-color: #f7f8fa;
+  --primary-color: #0f766e;
+  --primary-strong: #115e59;
+  --primary-soft: #dff7f3;
+  --accent-color: #c06c2f;
+  --ink: #17231f;
+  --text-color: #22312d;
+  --text-color-light: #5d6d68;
+  --text-color-lighter: #8b9994;
+  --border-color: #dce8e4;
+  --background-color: #eef6f3;
+  --surface-color: #fbfdfc;
+  --surface-muted: #f4faf7;
   --white: #fff;
   --safe-area-inset-bottom: env(safe-area-inset-bottom);
 
-  color-scheme: light dark;
+  color-scheme: light;
   color: var(--text-color);
   background-color: var(--background-color);
 
@@ -33,19 +37,64 @@ html {
 body {
   font-size: 14px;
   color: var(--text-color);
-  background-color: var(--background-color);
+  background:
+    linear-gradient(180deg, #e3f1ed 0%, #f7fbfa 34%, #eef6f3 100%);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-y: auto;
   overflow-x: hidden;
 }
 
-/* 适配iPhone底部安全区域 */
 .van-tabbar {
+  width: min(750px, 100vw);
+  left: 50%;
+  transform: translateX(-50%);
+  border-top: 1px solid rgba(15, 118, 110, 0.12);
+  background: rgba(251, 253, 252, 0.96);
+  box-shadow: 0 -10px 28px rgba(33, 63, 55, 0.08);
   padding-bottom: var(--safe-area-inset-bottom);
 }
 
-/* 滚动条优化 */
+.van-tabbar-item--active {
+  color: var(--primary-color);
+}
+
+.van-nav-bar {
+  width: min(750px, 100vw);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(251, 253, 252, 0.96);
+  border-bottom: 1px solid rgba(15, 118, 110, 0.1);
+  box-shadow: 0 8px 24px rgba(33, 63, 55, 0.05);
+}
+
+.van-nav-bar__title {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.van-button--primary {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.van-button--primary.van-button--plain {
+  color: var(--primary-color);
+}
+
+.van-cell-group--inset {
+  margin-left: 0;
+  margin-right: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 118, 110, 0.08);
+  box-shadow: 0 10px 28px rgba(33, 63, 55, 0.06);
+}
+
+.van-cell {
+  background: var(--surface-color);
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -56,7 +105,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #ddd;
+  background: #aac7bf;
   border-radius: 3px;
 }
 

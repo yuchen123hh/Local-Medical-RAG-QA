@@ -1,13 +1,22 @@
 <template>
   <div class="ai-chat-container">
     <van-nav-bar 
-      title="AI问答" 
+      title="本地文档问答台" 
       fixed 
       right-text="会话" 
       @click-right="goToSessions"
     />
     
     <div class="chat-content">
+      <section class="workspace-summary">
+        <div>
+          <p class="summary-kicker">Private RAG Workspace</p>
+          <h1>把问题交给你的资料库</h1>
+          <p class="summary-copy">回答优先来自已上传文档，检索过程会显示在消息中，方便核对来源。</p>
+        </div>
+        <button class="summary-action" @click="router.push('/knowledgebase')">上传资料</button>
+      </section>
+
       <div class="messages-container" ref="messagesContainer">
         <div 
           v-for="(message, index) in messages" 
@@ -18,7 +27,7 @@
             <!-- 思考过程区域 -->
             <div v-if="message.thinking && message.thinking.length > 0" class="thinking-section">
               <div class="thinking-header" @click="toggleThinking(message)">
-                <span class="thinking-label">💬 思考过程</span>
+                <span class="thinking-label">检索轨迹</span>
                 <span class="thinking-toggle">{{ message.thinkingCollapsed ? '展开' : '收起' }}</span>
               </div>
               <div v-show="!message.thinkingCollapsed" class="thinking-body">
@@ -85,7 +94,7 @@
           :disabled="isLoading || !userInput.trim()" 
           @click="sendMessage"
         >
-          发送
+          提问
         </van-button>
       </div>
     </div>
@@ -120,7 +129,7 @@ const getCsrfToken = () => {
 
 // 聊天消息
 const messages = ref([
-  { role: 'assistant', content: '你好！我是AI助手，有什么可以帮助你的吗？' }
+  { role: 'assistant', content: '你好，我会优先检索你上传的资料，再给出回答。可以先去资料库上传 PDF、Word、PPT 或 Markdown。' }
 ]);
 const userInput = ref('');
 const messagesContainer = ref(null);
@@ -164,10 +173,10 @@ const formatMessage = (content) => {
 
 // 思考过程阶段配置
 const stageConfig = {
-  retrieval:  { label: '检索',   color: '#1989fa' },
-  hyde:       { label: 'HyDE',   color: '#7232dd' },
-  reorder:    { label: '重排序', color: '#f07c1f' },
-  summarize:  { label: '总结',   color: '#07c160' }
+  retrieval:  { label: '检索',   color: '#0f766e' },
+  hyde:       { label: '扩展',   color: '#5b6f9b' },
+  reorder:    { label: '排序', color: '#c06c2f' },
+  summarize:  { label: '生成',   color: '#4f8a5f' }
 };
 
 const getStageLabel = (stage) => {
@@ -491,6 +500,9 @@ const loadSessionHistory = (session) => {
   padding-top: 46px;
   padding-bottom: 50px;
   box-sizing: border-box;
+  background:
+    linear-gradient(180deg, rgba(15, 118, 110, 0.08), rgba(238, 246, 243, 0) 220px),
+    var(--background-color);
 }
 
 .chat-content {
@@ -500,15 +512,61 @@ const loadSessionHistory = (session) => {
   overflow: hidden;
 }
 
+.workspace-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin: 14px 14px 8px;
+  padding: 16px;
+  border: 1px solid rgba(15, 118, 110, 0.14);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fbfdfc 0%, #e8f6f1 100%);
+  box-shadow: 0 14px 34px rgba(33, 63, 55, 0.08);
+}
+
+.summary-kicker {
+  margin: 0 0 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-color);
+  text-transform: uppercase;
+}
+
+.workspace-summary h1 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.summary-copy {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-color-light);
+}
+
+.summary-action {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--primary-color);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.2);
+}
+
 .messages-container {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
+  padding: 10px 14px 14px;
 }
 
 .message {
-  margin-bottom: 10px;
-  max-width: 80%;
+  margin-bottom: 12px;
+  max-width: 86%;
 }
 
 .user-message {
@@ -520,35 +578,45 @@ const loadSessionHistory = (session) => {
 }
 
 .message-content {
-  padding: 10px;
-  border-radius: 10px;
+  padding: 11px 13px;
+  border-radius: 8px;
   word-break: break-word;
+  box-shadow: 0 8px 20px rgba(33, 63, 55, 0.06);
 }
 
 .user-message .message-content {
-  background-color: #007aff;
+  background: #0f766e;
   color: white;
+  border-bottom-right-radius: 2px;
 }
 
 .ai-message .message-content {
-  background-color: #f2f2f2;
-  color: #333;
+  background-color: #fbfdfc;
+  color: var(--text-color);
+  border: 1px solid rgba(15, 118, 110, 0.1);
+  border-bottom-left-radius: 2px;
 }
 
 .input-container {
   display: flex;
-  padding: 10px;
-  border-top: 1px solid #eee;
-  background-color: #fff;
+  padding: 10px 14px 12px;
+  border-top: 1px solid rgba(15, 118, 110, 0.1);
+  background-color: rgba(251, 253, 252, 0.96);
+  box-shadow: 0 -10px 24px rgba(33, 63, 55, 0.05);
 }
 
 .chat-input {
   flex: 1;
   margin-right: 10px;
+  border: 1px solid rgba(15, 118, 110, 0.12);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .send-button {
   align-self: flex-end;
+  min-width: 72px;
+  border-radius: 6px;
 }
 
 /* Markdown 样式 */
@@ -710,9 +778,9 @@ const loadSessionHistory = (session) => {
 /* 思考过程样式 */
 .thinking-section {
   margin-bottom: 8px;
-  border-left: 3px solid #ddd;
+  border-left: 3px solid var(--primary-color);
   padding-left: 8px;
-  background-color: #f8f9fa;
+  background-color: #edf8f5;
   border-radius: 4px;
   padding: 6px 8px;
   font-size: 12px;
@@ -728,13 +796,13 @@ const loadSessionHistory = (session) => {
 }
 
 .thinking-label {
-  color: #999;
+  color: var(--primary-strong);
   font-weight: 500;
   font-size: 12px;
 }
 
 .thinking-toggle {
-  color: #bbb;
+  color: var(--text-color-lighter);
   font-size: 11px;
 }
 
@@ -744,7 +812,7 @@ const loadSessionHistory = (session) => {
 
 .thinking-step {
   padding: 4px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid rgba(15, 118, 110, 0.08);
   line-height: 1.4;
 }
 
@@ -772,10 +840,10 @@ const loadSessionHistory = (session) => {
 .thinking-details {
   margin-top: 3px;
   padding: 4px 6px;
-  background-color: #f0f0f0;
+  background-color: rgba(255, 255, 255, 0.72);
   border-radius: 3px;
   font-size: 11px;
-  color: #999;
+  color: var(--text-color-light);
 }
 
 .thinking-detail-text {

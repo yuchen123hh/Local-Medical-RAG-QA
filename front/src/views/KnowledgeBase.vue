@@ -1,18 +1,32 @@
 <template>
   <div class="knowledgebase-container">
     <van-nav-bar
-      :title="$t('knowledgebase.title')"
+      title="资料库工作台"
       left-arrow
       @click-left="onClickLeft"
     />
 
     <div class="knowledgebase-content">
+      <section class="kb-overview">
+        <div>
+          <p class="overview-kicker">Document Index</p>
+          <h1>管理你的私有检索资料</h1>
+          <p>上传文档后，系统会切片、入库，并在问答时只检索当前账号的资料。</p>
+        </div>
+        <div class="overview-count">
+          <strong>{{ documents.length }}</strong>
+          <span>份文档</span>
+        </div>
+      </section>
+
       <div class="upload-area" @click="openFilePicker" @dragover.prevent @drop.prevent="handleDrop">
         <div class="upload-icon">
-          <van-icon name="upload" size="48" />
+          <van-icon name="plus" size="34" />
         </div>
-        <p class="upload-text">{{ $t('knowledgebase.uploadText') }}</p>
-        <p class="upload-hint">{{ $t('knowledgebase.uploadHint') }}</p>
+        <div>
+          <p class="upload-text">拖入或选择资料文件</p>
+          <p class="upload-hint">支持 PDF、TXT、Markdown、Word、PPT，适合产品手册、论文、制度文档</p>
+        </div>
         <input
           ref="fileInput"
           type="file"
@@ -24,7 +38,7 @@
       </div>
 
       <div v-if="selectedFiles.length > 0" class="file-list">
-        <h3 class="section-title">{{ $t('knowledgebase.selectedFiles') }}</h3>
+        <h3 class="section-title">待上传队列</h3>
         <van-cell-group inset>
           <van-cell
             v-for="(file, index) in selectedFiles"
@@ -47,11 +61,11 @@
         block
         @click="uploadFiles"
       >
-        {{ $t('knowledgebase.uploadButton') }}
+        开始建立索引
       </van-button>
 
       <div v-if="uploading" class="upload-progress">
-        <h3 class="section-title">{{ $t('knowledgebase.uploadProgress') }}</h3>
+        <h3 class="section-title">索引进度</h3>
         <div v-for="(progress, index) in uploadProgressList" :key="index" class="progress-item">
           <div class="progress-header">
             <span class="progress-filename">{{ progress.filename }}</span>
@@ -71,7 +85,7 @@
 
       <div v-if="!uploading" class="document-list">
         <div class="list-header">
-          <h3 class="section-title">{{ $t('knowledgebase.documentList') }}</h3>
+          <h3 class="section-title">已入库文档</h3>
           <div class="list-actions">
             <span class="document-count">{{ documents.length }} {{ $t('knowledgebase.total') }}</span>
             <van-button
@@ -702,32 +716,103 @@ onMounted(() => {
 <style scoped>
 .knowledgebase-container {
   min-height: 100vh;
-  background-color: var(--background-color);
+  background:
+    linear-gradient(180deg, rgba(15, 118, 110, 0.09), rgba(238, 246, 243, 0) 250px),
+    var(--background-color);
   color: var(--text-color);
   padding-top: 46px;
-  padding-bottom: 20px;
+  padding-bottom: 70px;
 }
 
 .knowledgebase-content {
   padding: 16px;
 }
 
+.kb-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 17px;
+  margin-bottom: 14px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fbfdfc 0%, #e4f5ef 100%);
+  border: 1px solid rgba(15, 118, 110, 0.12);
+  box-shadow: 0 14px 34px rgba(33, 63, 55, 0.08);
+}
+
+.overview-kicker {
+  margin: 0 0 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-color);
+  text-transform: uppercase;
+}
+
+.kb-overview h1 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.kb-overview p {
+  margin: 7px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-color-light);
+}
+
+.overview-count {
+  flex: 0 0 72px;
+  min-height: 72px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: #0f766e;
+  color: #fff;
+}
+
+.overview-count strong {
+  font-size: 25px;
+  line-height: 1;
+}
+
+.overview-count span {
+  margin-top: 5px;
+  font-size: 12px;
+}
+
 .upload-area {
-  border: 2px dashed #d9d9d9;
-  border-radius: 12px;
-  padding: 40px 20px;
-  text-align: center;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  border: 1.5px dashed rgba(15, 118, 110, 0.35);
+  border-radius: 8px;
+  padding: 18px;
+  text-align: left;
   cursor: pointer;
   margin-bottom: 20px;
+  background: rgba(251, 253, 252, 0.86);
 }
 
 .upload-area:hover {
-  border-color: #1989fa;
+  border-color: var(--primary-color);
+  background: #fbfdfc;
 }
 
 .upload-icon {
-  color: #1989fa;
-  margin-bottom: 12px;
+  flex: 0 0 58px;
+  width: 58px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+  background: var(--primary-soft);
+  border-radius: 8px;
 }
 
 .upload-text {
@@ -738,8 +823,9 @@ onMounted(() => {
 
 .upload-hint {
   font-size: 12px;
-  color: #969799;
+  color: var(--text-color-light);
   margin: 0;
+  line-height: 1.5;
 }
 
 .file-input {
@@ -751,10 +837,11 @@ onMounted(() => {
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: bold;
   margin: 0;
-  color: #969799;
+  color: var(--primary-strong);
+  letter-spacing: 0;
 }
 
 .list-header {
@@ -772,7 +859,7 @@ onMounted(() => {
 
 .document-count {
   font-size: 12px;
-  color: #969799;
+  color: var(--text-color-lighter);
 }
 
 .document-list {
@@ -781,7 +868,7 @@ onMounted(() => {
 
 .doc-meta {
   font-size: 12px;
-  color: #969799;
+  color: var(--text-color-lighter);
 }
 
 .delete-icon {
@@ -796,7 +883,10 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #969799;
+  color: var(--text-color-lighter);
+  background: rgba(251, 253, 252, 0.7);
+  border: 1px dashed rgba(15, 118, 110, 0.16);
+  border-radius: 8px;
 }
 
 .empty-state p {
@@ -829,13 +919,13 @@ onMounted(() => {
 }
 
 .status-processing {
-  background-color: #fff7e6;
-  color: #faad14;
+  background-color: #fff6e9;
+  color: #b66b20;
 }
 
 .status-success {
-  background-color: #f6ffed;
-  color: #52c41a;
+  background-color: #e9f8f0;
+  color: #32845a;
 }
 
 .status-failed {
@@ -864,7 +954,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid rgba(15, 118, 110, 0.1);
 }
 
 .detail-header h4 {
@@ -979,7 +1069,7 @@ onMounted(() => {
 .detail-page-label {
   font-size: 12px;
   font-weight: bold;
-  color: #1989fa;
+  color: var(--primary-color);
   margin-bottom: 8px;
 }
 

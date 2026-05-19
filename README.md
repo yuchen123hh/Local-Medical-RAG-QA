@@ -1,229 +1,230 @@
-# 🚀 RAG对话系统
+# Local Knowledge RAG Workbench
 
-<div align="center">
-<a href="https://github.com/RMA-MUN/LangChain-RAG-FastAPI-Service/stargazers">
-  <img src="https://img.shields.io/github/stars/RMA-MUN/LangChain-RAG-FastAPI-Service?style=flat-square&label=Stars&color=orange" alt="Stars">
-</a>
-<a href="https://github.com/RMA-MUN/LangChain-RAG-FastAPI-Service/network/members">
-  <img src="https://img.shields.io/github/forks/RMA-MUN/LangChain-RAG-FastAPI-Service?style=flat-square&label=Forks&color=green" alt="Forks">
-</a>
-  <img src="https://img.shields.io/badge/python-v3.12.4-blue.svg" alt="System">
-</div>
+这是一个面向本地部署的私有资料问答系统。你可以上传 PDF、Word、PPT、Markdown 或 TXT 文档，系统会把文档切片、写入向量库，并在聊天时优先检索当前账号上传的资料，再组织成回答。
 
-## 📋 目录
+本仓库已经针对 Windows 本地运行做过适配：可以不安装 MySQL、Redis、Docker 或 Ollama，直接使用 SQLite、进程内缓存和阿里百炼 DashScope API 跑通完整流程。
 
-- [项目简介](#项目简介)
-- [核心特性](#核心特性)
-- [项目架构](#项目架构)
-- [项目演示](#项目演示)
-- [快速开始](#快速开始)
-- [技术栈](#技术栈)
-- [项目结构](#项目结构)
-- [API 文档](#api文档)
-- [配置说明](#配置说明)
-- [部署指南](#部署指南)
-- [开发指南](#开发指南)
-- [故障排除](#故障排除)
-- [文档](#文档)
-- [联系方式](#联系方式)
+## 适合做什么
 
-## 项目简介
+- 个人资料库问答：论文、课程资料、读书笔记、技术文档。
+- 企业内部文档问答：制度、产品手册、培训材料、项目文档。
+- 客服或售前知识库原型：上传产品资料后按文档内容回答。
+- RAG 学习项目：查看文档切片、向量检索、BM25 检索、重排序、流式回答的完整链路。
 
-基于 **FastAPI + LangChain** 构建的企业级智能对话系统，集成先进的 **RAG（检索增强生成）** 技术，能够基于文档内容提供高精度的智能问答服务。系统采用微服务架构，具备会话持久化、多语言支持和模块化设计等特性。
+它不是联网搜索工具。系统主要回答来自你上传的资料。
 
-## 核心特性
+## 功能概览
 
-- **智能问答** 💬：基于 RAG 技术，结合文档检索和大语言模型，提供精准的问答体验
-- **会话持久化** 💾：使用 MySQL 存储会话历史，支持长期保存和回溯
-- **多语言支持** 🌐：前端集成 i18n，支持中英文界面切换
-- **文档管理** 📄：前端可视化文档上传、管理(查看细致的切片、原文档等信息)
-- **安全性** ⛑️：对不同用户的知识库进行隔离，RAG检索只能检索到自己上传的文档
-- **微服务架构** 🏗️：分离的用户服务和对话服务，易于扩展和维护
-- **高性能** ⚡：基于 FastAPI 和 ChromaDB，提供卓越的性能表现
+- 用户注册、登录和 JWT 鉴权。
+- 每个用户拥有独立知识库，检索时按 `user_id` 隔离。
+- 支持上传 `.pdf`、`.txt`、`.md`、`.docx`、`.pptx`。
+- 支持文档切片、MD5 去重、文档列表、切片查看和删除。
+- 使用 ChromaDB 做向量库。
+- 使用向量检索 + BM25 关键词检索的混合检索。
+- 查询时使用 HyDE 思路增强检索。
+- 支持重排序和流式回答。
+- 前端提供聊天、资料库、会话记录、个人中心页面。
 
-## 项目架构
+## 本地访问地址
 
-```mermaid
-flowchart TD
-    subgraph "前端层"
-        A["用户界面 (Vue 3)"] -->|发送查询| B["API请求 (Axios)"]
-        C["会话管理 (Pinia)"] -->|状态管理| B
-        D["用户认证 (Vue Router)"] -->|路由守卫| B
-    end
+本地默认端口如下：
 
-    subgraph "API路由层"
-        B -->|REST API| E["聊天路由 (FastAPI)"]
-        E -->|认证| F["认证中间件 (JWT)"]
-        E -->|限流| G["限流控制 (Redis)"]
-    end
+| 服务 | 地址 | 说明 |
+| --- | --- | --- |
+| 前端 | `http://127.0.0.1:3010/` | Vue + Vite 页面 |
+| FastAPI 后端 | `http://127.0.0.1:8010` | 聊天、RAG、知识库接口 |
+| Django 用户服务 | `http://127.0.0.1:8011` | 注册、登录、用户资料接口 |
 
-    subgraph "业务服务层"
-        E -->|代理查询| H["ChatService (Python)"]
-        H -->|会话管理| I["SessionManager (MySQL)"]
-        H -->|RAG检索| J["RagService (LangChain)"]
-        H -->|向量存储| K["VectorStoreService (ChromaDB)"]
-        H -->|智能代理| L["Agent (LangChain)"]
-        H -->|文档重排序| M["ReorderService (Hugging Face)"]
-    end
+如果你机器上端口冲突，可以改启动命令中的端口，同时同步修改前端代理环境变量。
 
-    subgraph "数据存储层"
-        I -->|存储会话| N["MySQL数据库"]
-        K -->|向量存储| O["ChromaDB向量库"]
-        K -->|文件存储| P["文件系统"]
-        G -->|缓存| Q["Redis缓存"]
-    end
+## 技术结构
 
-    subgraph "AI模型服务"
-        L -->|LLM调用| R["DashScope API (Qwen3-Max)"]
-        J -->|嵌入模型| S["文本嵌入 (text-embedding-v4)"]
-        M -->|重排序模型| T["Qwen3-Reranker-0.6B"]
-    end
-
-    subgraph "用户服务"
-        U["Django用户服务"] -->|认证授权| F
-        U -->|用户管理| V["MySQL用户数据库"]
-    end
+```text
+front/                Vue 3 前端
+backend/              FastAPI + LangChain RAG 服务
+DjangoUserService/    Django 用户服务
+backend/data/         本地向量库、SQLite、上传资料缓存，默认不提交
 ```
 
-## 项目演示
+核心调用链：
 
-### 主要功能界面
+```text
+用户提问
+  -> FastAPI 鉴权
+  -> 按 user_id 检索当前用户文档
+  -> HyDE 生成检索查询
+  -> Chroma 向量检索 + BM25 关键词检索
+  -> 文档重排序
+  -> 大模型总结回答
+  -> SSE 流式返回前端
+```
 
-| 功能模块 | 界面展示 | 功能说明 |
-|---------|:--------|---------|
-| AI 聊天 | ![AI聊天界面](./images/aichat.png) | 基于 RAG 的智能问答界面，支持上下文对话和文档引用 |
-| 聊天管理 | ![聊天管理界面](./images/chat_manager.png) | 会话历史管理，支持会话列表查看和切换 |
-| 用户服务 | ![用户服务界面](./images/user_service.png) | 用户注册、登录和个人信息管理 |
-| 知识库管理 | ![知识库管理页面](./images/knowledge_manager.png) | 文档上传、查看和管理知识库 |
-| 文档切片 | ![文档切片](./images/text_spliter.png) | 可视化文档切片详情，支持查看切片内容 |
+## 环境要求
 
-> **提示**：点击图片可查看大图，所有界面均支持中英文切换
+建议环境：
 
-## 快速开始
+- Windows 10/11
+- Python 3.11
+- Node.js 18 或更新版本
+- Git
+- `uv`
+- 阿里百炼 / DashScope API Key
 
-### 本仓库本地运行说明
+安装 `uv`：
 
-本仓库已经在 Windows 本地环境验证通过，默认使用：
+```powershell
+py -m pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
 
-- 前端：`http://127.0.0.1:3010/`
-- FastAPI 后端：`http://127.0.0.1:8010`
-- Django 用户服务：`http://127.0.0.1:8011`
-- 本地数据库：SQLite
-- 本地缓存：进程内内存缓存
-- 大模型 API：读取本机环境变量 `DASHSCOPE_API_KEY`，不会写入仓库
+确认命令可用：
 
-当前本地开发模式不强制依赖 MySQL、Redis、Docker 或 Ollama。重排序模型启动检查默认可通过 `SKIP_RERANKER_MODEL_CHECK=true` 跳过，避免首次启动下载大模型文件。
+```powershell
+py --version
+node --version
+npm.cmd --version
+uv --version
+```
 
-#### 1. 克隆仓库
+## 克隆项目
 
-```bash
+```powershell
 git clone https://github.com/yuchen123hh/LangChain-RAG-FastAPI-Service-local.git
 cd LangChain-RAG-FastAPI-Service-local
 ```
 
-#### 2. 配置 API Key
+## 配置 API Key
 
-在系统环境变量或当前终端中配置阿里百炼 / DashScope Key：
+本地运行使用你电脑环境变量里的 `DASHSCOPE_API_KEY`。不要把真实 API Key 写进 Git 仓库。
+
+当前 PowerShell 临时配置：
 
 ```powershell
 $env:DASHSCOPE_API_KEY="你的阿里百炼APIKey"
 ```
 
-不要把真实 API Key 写入 `.env` 后提交。`.env` 已被 `.gitignore` 忽略。
+如果要长期生效，可以在 Windows 系统环境变量里添加 `DASHSCOPE_API_KEY`。
 
-#### 3. 安装依赖
+后端代码也兼容 `ALIYUN_ACCESS_KEY_SECRET`，但本仓库推荐使用 `DASHSCOPE_API_KEY`，避免把 key 写到 `.env`。
 
-后端服务：
+## 安装依赖
+
+### FastAPI 后端
 
 ```powershell
 cd backend
 uv sync --python 3.11
 ```
 
-Django 用户服务：
+### Django 用户服务
 
 ```powershell
 cd ..\DjangoUserService
 uv sync --python 3.11
 ```
 
-前端：
+### 前端
 
 ```powershell
 cd ..\front
 npm.cmd ci
 ```
 
-#### 4. 创建本地 `.env`
+## 创建本地配置文件
 
-后端 `backend\.env` 示例：
+`.env` 文件只用于本地运行，已经被 `.gitignore` 忽略。
+
+### `backend\.env`
 
 ```env
 LLM_TYPE=ALIYUN
 ALIYUN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 CHAT_MODEL_NAME=qwen3-max
+
 EMBED_MODEL_TYPE=ALIYUN
 ALIYUN_EMBED_MODEL_NAME=text-embedding-v4
+
 VISION_MODEL_TYPE=ALIYUN
 VISION_CHAT_MODEL_NAME=qwen-vl-max
+
 DB_ENGINE=sqlite
 SQLITE_DATABASE=data/chat_history.sqlite3
+
 REDIS_BACKEND=memory
 RATE_LIMIT_ENABLED=false
+
 DJANGO_API_URL=http://127.0.0.1:8011
+
 LANGCHAIN_TRACING_V2=false
 SKIP_RERANKER_MODEL_CHECK=true
-SECRET_KEY=MY_JWT_SECRET_KWY_FOR_USR_AND_I_JUST_WRITE_THIS
+
+SECRET_KEY=MY_LOCAL_JWT_SECRET_CHANGE_ME
 ALGORITHM=HS256
 ```
 
-用户服务 `DjangoUserService\.env` 示例：
+### `DjangoUserService\.env`
 
 ```env
-JWT_SECRET_KEY=MY_JWT_SECRET_KWY_FOR_USR_AND_I_JUST_WRITE_THIS
+JWT_SECRET_KEY=MY_LOCAL_JWT_SECRET_CHANGE_ME
+
 DB_ENGINE=sqlite
 SQLITE_DATABASE=data/user_service.sqlite3
+
 REDIS_BACKEND=memory
 CELERY_BROKER_URL=memory://
 CELERY_RESULT_BACKEND=cache+memory://
 REDIS_CACHE_URL=redis://localhost:6379/1
 ```
 
-两个服务的 JWT 密钥必须一致：后端 `SECRET_KEY` 和用户服务 `JWT_SECRET_KEY` 要使用同一个值。
+注意：`backend\.env` 的 `SECRET_KEY` 必须和 `DjangoUserService\.env` 的 `JWT_SECRET_KEY` 完全一致，否则登录后的 token 不能被 FastAPI 验证。
 
-#### 5. 初始化用户数据库
+## 初始化数据库
+
+用户服务第一次运行前需要迁移数据库：
 
 ```powershell
 cd DjangoUserService
 .\.venv\Scripts\python.exe manage.py migrate
 ```
 
-#### 6. 启动服务
+本地 SQLite 文件会生成在：
 
-分别打开三个终端执行：
+```text
+DjangoUserService/data/user_service.sqlite3
+```
+
+聊天历史 SQLite 会在 FastAPI 启动时自动创建：
+
+```text
+backend/data/chat_history.sqlite3
+```
+
+这些本地数据文件不会被提交。
+
+## 启动服务
+
+打开三个 PowerShell 终端，分别执行下面命令。
+
+### 1. 启动 Django 用户服务
 
 ```powershell
-cd DjangoUserService
+cd D:\codex\LangChain-RAG-FastAPI-Service-master\DjangoUserService
 .\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8011 --noreload
 ```
 
+### 2. 启动 FastAPI 后端
+
 ```powershell
-cd backend
+cd D:\codex\LangChain-RAG-FastAPI-Service-master\backend
 .\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8010
 ```
 
+### 3. 启动前端
+
 ```powershell
-cd front
+cd D:\codex\LangChain-RAG-FastAPI-Service-master\front
 $env:VITE_BACKEND_TARGET="http://127.0.0.1:8010"
 $env:VITE_USER_SERVICE_TARGET="http://127.0.0.1:8011"
 npm.cmd run dev -- --host 127.0.0.1 --port 3010
-```
-
-#### 7. 验证
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:8010/health/live
-Invoke-RestMethod http://127.0.0.1:8010/health/ready
 ```
 
 浏览器打开：
@@ -232,268 +233,133 @@ Invoke-RestMethod http://127.0.0.1:8010/health/ready
 http://127.0.0.1:3010/
 ```
 
-更多本地启动说明见 [LOCAL_DEPLOY.md](./LOCAL_DEPLOY.md)。
+## 使用流程
 
-### 环境要求
+1. 打开前端页面。
+2. 注册账号或使用测试账号登录。
+3. 进入“资料库”页面。
+4. 上传 PDF、Word、PPT、Markdown 或 TXT。
+5. 等待切片和索引完成。
+6. 回到“问答”页面。
+7. 提问和上传资料相关的问题。
+8. 查看回答中的检索轨迹和会话记录。
 
-| 环境 | 版本推荐 |
-|------|----------|
-| Python | 3.12+ |
-| uv | 0.11.9   |
-| Node.js | 16+ |
+## 验证服务是否正常
 
-### 克隆项目
+FastAPI 健康检查：
 
-```bash
-git clone https://github.com/RMA-MUN/LangChain-RAG-FastAPI-Service.git
-cd LangChain-RAG-FastAPI-Service
+```powershell
+Invoke-RestMethod http://127.0.0.1:8010/health/live
+Invoke-RestMethod http://127.0.0.1:8010/health/ready
 ```
 
-### 安装依赖
+前端检查：
 
-#### 后端依赖
-```bash
-cd backend
-uv sync
+```powershell
+Invoke-WebRequest http://127.0.0.1:3010/
 ```
 
-#### 前端依赖
-```bash
-cd front
-npm install
-# 或使用 pnpm
-pnpm install
+用户接口可以通过注册和登录验证：
+
+```powershell
+$body = @{
+  username = "demo_user"
+  email = "demo_user@example.com"
+  telephone = "13900000001"
+  password = "123456"
+  confirm_password = "123456"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://127.0.0.1:8011/user/register/" -Method POST -Body $body -ContentType "application/json"
 ```
 
-### 环境配置
+## 本地开发模式和生产模式的区别
 
-#### 创建后端环境变量文件
+本地开发默认：
 
-在 `backend` 目录下创建 `.env` 文件，参考 `.env.example` 文件填写配置：
+- `DB_ENGINE=sqlite`
+- `REDIS_BACKEND=memory`
+- `EMBED_MODEL_TYPE=ALIYUN`
+- `SKIP_RERANKER_MODEL_CHECK=true`
 
-```env
-# ==================== LLM 大模型配置 ====================
-# LLM类型：ALIYUN | OLLAMA
-LLM_TYPE=ALIYUN
+这样可以快速跑通，不需要安装 MySQL、Redis、Docker 或本地模型。
 
-# ==================== Ollama 配置 (LLM_TYPE=OLLAMA) ====================
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL_NAME=qwen3.5:0.8b
+如果要部署到更正式的环境，建议改回：
 
-# ==================== 阿里云百炼配置 (LLM_TYPE=ALIYUN) ====================
-ALIYUN_ACCESS_KEY_SECRET=your_api_key
-ALIYUN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-CHAT_MODEL_NAME=qwen3-max
+- MySQL 保存用户和会话数据
+- Redis 做缓存、限流和 token 黑名单
+- 单独准备模型缓存目录
+- 使用稳定的进程管理工具运行 FastAPI、Django 和前端构建产物
 
-# ==================== 向量嵌入模型配置 ====================
-EMBED_MODEL_TYPE=OLLAMA
-TEXT_EMBEDDING_MODEL_NAME=qwen3-embedding:0.6b
-ALIYUN_EMBED_MODEL_NAME=qwen3-embedding
+## 常见问题
 
-# ==================== 数据库配置 ====================
-MYSQL_USER=root
-MYSQL_PASSWORD=root
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_DATABASE=chat_history
+### 1. 登录后聊天接口返回 401
 
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_DB=0
+检查两个 `.env` 里的 JWT 密钥是否一致：
 
-# ==================== 服务配置 ====================
-DJANGO_API_URL=http://127.0.0.1:8001
-
-# ==================== LangSmith 调试追踪 ====================
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=your_langsmith_api_key
-LANGCHAIN_PROJECT=my-fastapi-langchain-project
-
-# ==================== 重排序模型配置 ====================
-RERANKER_MODEL_PATH=D:\Hugging_Face\models\Qwen3-Reranker-0.6B
-
-# ==================== JWT 身份验证配置 ====================
-SECRET_KEY=MY_JWT_SECRET_KEY
-ALGORITHM=HS256
+```text
+backend SECRET_KEY
+DjangoUserService JWT_SECRET_KEY
 ```
 
-#### 创建用户服务环境变量文件
+### 2. 大模型调用失败
 
-在 `DjangoUserService` 目录下创建 `.env` 文件：
+确认本机有 `DASHSCOPE_API_KEY`：
 
-```env
-# JWT 配置
-JWT_SECRET_KEY=YOUR_JWT_SECRET_KEY
-
-# 数据库配置
-DB_PORT=3306
-DB_NAME=user_service
-DB_USER=root
-DB_PASSWORD=root
-DB_HOST=localhost
-
-# Celery 配置
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
-CELERY_TASK_TIME_LIMIT=300
-CELERY_TASK_SOFT_TIME_LIMIT=250
-CELERY_RESULT_EXPIRES=3600
-
-# Redis 配置
-REDIS_CACHE_URL=redis://localhost:6379/1
+```powershell
+echo $env:DASHSCOPE_API_KEY
 ```
 
-配置好env文件后，我们需要执行Django ORM的迁移命令来迁移数据库表：
+如果为空，需要重新配置。
 
-```bash
-python manage.py makemigrations
-python manage.py migrate
+### 3. 前端能打开但接口不通
+
+检查三个服务是否都在监听：
+
+```powershell
+netstat -ano | Select-String ':8010|:8011|:3010'
 ```
 
+同时确认前端启动时设置了：
 
-
-### 向量数据库配置
-
-修改 `backend/app/config/chroma.yaml` 文件：
-
-```yaml
-collection_name: rag_collection
-persist_directory: data/chromadb
-k: 3
-
-data_path: data
-md5_hex_store: data/md5_hex_store/md5_hex_store.txt
-allow_knowledge_file_types: ["txt", "pdf"]
-
-chunk_size: 200
-chunk_overlap: 20
-separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
+```powershell
+$env:VITE_BACKEND_TARGET="http://127.0.0.1:8010"
+$env:VITE_USER_SERVICE_TARGET="http://127.0.0.1:8011"
 ```
 
-### 启动服务
+### 4. 上传文档后问答没有检索结果
 
-| 服务 | 命令 | 端口 |
-|------|------|------|
-| 后端服务 | `cd backend && uvicorn main:app --reload` | 8000 |
-| 前端服务 | `cd front && npm run dev` | 3000 |
-| 用户服务 | `cd DjangoUserService && uv run python manage.py runserver 8001` | 8001 |
-| MySQL | `net start mysql` | 3306 |
-| Redis | `redis-server` 或 `net start redis` | 6379 |
-| Ollama | `ollama serve` | 11434 |
+先确认：
 
-## 技术栈
+- 已登录。
+- 文档上传成功。
+- 上传的是支持格式。
+- 提问内容和文档内容相关。
+- 当前账号和上传账号是同一个。
 
-### 后端技术
+知识库按用户隔离，不会检索其他用户上传的资料。
 
-| 技术 | 说明 |
-|------|------|
-| FastAPI | 高性能异步 Web 框架 |
-| LangChain | 大语言模型应用开发框架 |
-| ChromaDB | 轻量级向量数据库 |
-| Django | 用户认证和管理系统 |
-| MySQL | 关系型数据库 |
-| Redis | 缓存数据库 |
-| DashScope API | 大语言模型服务 |
-| Hugging Face | 预训练模型服务 |
-| PyTorch | 深度学习框架 |
-| Sentence-Transformers | 句子嵌入库 |
+### 5. 不想每次都开三个终端
 
-### 前端技术
+可以用 PowerShell 脚本或进程管理工具封装启动命令。当前仓库先保留显式启动方式，便于调试。
 
-| 技术 | 说明 |
-|------|------|
-| Vue 3 | 现代化前端框架 |
-| Vite | 极速构建工具 |
-| Vue Router | 路由管理 |
-| Pinia | 状态管理 |
-| i18n | 国际化支持 |
+## 文件不会提交的内容
 
-## 项目结构
+`.gitignore` 已经排除：
 
-```
-├── backend/                  # FastAPI 后端服务
-│   ├── app/                  # 应用代码
-│   │   ├── agent/            # 智能代理模块
-│   │   ├── config/           # 配置文件目录
-│   │   ├── model/            # 数据模型定义
-│   │   ├── prompt/           # 提示词模板
-│   │   ├── rag/              # RAG 核心功能
-│   │   ├── router/           # API 路由定义
-│   │   ├── services/         # 业务服务层
-│   │   └── utils/            # 工具函数
-│   ├── data/                 # 数据存储目录
-│   ├── main.py               # 应用入口文件
-│   └── requirements.txt      # 后端依赖列表
-├── front/                    # Vue 前端项目
-│   ├── src/                  # 源代码
-│   ├── public/               # 静态资源
-│   └── package.json          # 前端依赖配置
-├── DjangoUserService/        # Django 用户服务
-└── README.md                 # 项目说明文档
-```
+- `.env`
+- `.venv/`
+- `node_modules/`
+- `dist/`
+- `data/`
+- `logs/`
+- `*.sqlite3`
+- Python 缓存文件
 
-## API文档
+因此 API Key、本地数据库、上传资料、向量库和日志不会进入 GitHub。
 
-### FastAPI 后端 API
+## 更多说明
 
-- **[API 文档](./backend/api.md)**：详细的 API 接口文档
-- **[交互式文档](http://localhost:8000/docs)**：启动服务后访问自动生成的交互式文档
+本地启动命令也整理在：
 
-### Django 用户服务 API
-
-- **[API 文档](./DjangoUserService/api.md)**：详细的用户服务 API 文档
-- **[交互式文档](http://localhost:8001/api/)**：启动服务后访问用户服务 API 文档
-
-## 部署指南
-
-详细的部署说明请参考：[部署指南](./docs/deployment.md)
-
-## 开发指南
-
-### 代码结构说明
-
-- `backend/app/rag/`：RAG 核心功能，包括向量存储和检索
-- `backend/app/agent/`：智能代理，处理用户请求和对话逻辑
-- `backend/app/services/`：业务服务层，提供会话管理等功能
-- `backend/app/utils/`：工具函数，包括配置加载、文件处理等
-- `front/src/views/`：前端页面组件
-- `front/src/components/`：可复用的前端组件
-
-### 开发流程
-
-1. **添加新功能**
-   - 在对应的模块中添加代码
-   - 运行测试确保功能正常
-   - 更新相关文档
-
-2. **调试技巧**
-   - 使用 FastAPI 的自动重载功能：`uvicorn main:app --reload`
-   - 使用 Vue 的热更新功能：`npm run dev`
-
-## 故障排除
-
-详细的故障排除指南请参考：[故障排除](./docs/troubleshooting.md)
-
-## 文档
-
-项目文档位于 `docs/` 目录：
-
-- **[ModelScope 模型配置](./docs/modelscope_model.md)**：详细的模型下载和配置说明
-- **[故障排除](./docs/troubleshooting.md)**：常见问题和解决方案
-- **[API 文档](./backend/openapi.json)**：后端 API 接口文档
-- **[用户服务 API](./DjangoUserService/api.md)**：用户服务 API 文档
-
-## Star History
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=RMA-MUN/LangChain-RAG-FastAPI-Service&type=date&theme=dark&legend=top-left" />
-  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=RMA-MUN/LangChain-RAG-FastAPI-Service&type=date&legend=top-left" />
-  <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=RMA-MUN/LangChain-RAG-FastAPI-Service&type=date&legend=top-left" />
-</picture>
-
-## 联系方式
-
-如有任何问题或建议，欢迎在 GitHub 提交 issues 或联系作者：
-
-- Email: n3032747608@163.com
-- QQ: 3032747608
+[LOCAL_DEPLOY.md](./LOCAL_DEPLOY.md)

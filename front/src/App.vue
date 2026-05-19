@@ -25,13 +25,12 @@
 }
 
 html, body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-size: 16px;
-  background-color: #f7f8fa;
-  color: #333;
+  background-color: #eef6f3;
+  color: #22312d;
   height: 100%;
   width: 100%;
 }
@@ -40,6 +39,7 @@ html, body {
   max-width: 750px;
   margin: 0 auto;
   height: 100%;
+  background: #eef6f3;
 }
 
 /* 移动端适配 */

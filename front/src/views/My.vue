@@ -2,6 +2,10 @@
   <div class="my-container">
     <van-nav-bar :title="$t('my.title')" />
     <div class="user-info" @click="goToProfile" v-if="isLogin">
+      <div class="avatar avatar-mark">
+        {{ userInfo?.username?.slice(0, 1)?.toUpperCase() || 'R' }}
+      </div>
+      <!--
       <div class="avatar">
         <van-image
           round
@@ -10,21 +14,15 @@
           :src="userInfo && userInfo.avatar ? `http://localhost:8001${userInfo.avatar}` : 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'"
         />
       </div>
+      -->
       <div class="info">
         <div class="username">{{ isLogin && userInfo ? userInfo.username : $t('my.notLoggedIn') }}</div>
-        <div class="desc" v-if="isLogin && userInfo">{{ userBio || $t('profile.bio') }}</div>
+        <div class="desc" v-if="isLogin && userInfo">本地资料库账号 · {{ userBio || $t('profile.bio') }}</div>
       </div>
       <van-icon name="arrow" class="arrow-icon" />
     </div>
     <div class="user-info" v-else>
-      <div class="avatar">
-        <van-image
-          round
-          width="80"
-          height="80"
-          src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg"
-        />
-      </div>
+      <div class="avatar avatar-mark">R</div>
       <div class="info">
         <div class="username">{{ $t('my.notLoggedIn') }}</div>
         <div class="desc">
@@ -126,7 +124,9 @@ onMounted(async () => {
 .my-container {
   padding-top: 46px;
   padding-bottom: 50px;
-  background-color: var(--background-color);
+  background:
+    linear-gradient(180deg, rgba(15, 118, 110, 0.09), rgba(238, 246, 243, 0) 230px),
+    var(--background-color);
   color: var(--text-color);
   min-height: 100vh;
   box-sizing: border-box;
@@ -143,12 +143,13 @@ onMounted(async () => {
 .user-info {
   display: flex;
   align-items: center;
-  padding: 20px 16px;
-  background-color: var(--primary-color);
+  padding: 18px 16px;
+  background: linear-gradient(135deg, #0f766e 0%, #1d5f56 100%);
   color: #fff;
   border-radius: 8px;
   margin: 16px;
   position: relative;
+  box-shadow: 0 16px 34px rgba(33, 63, 55, 0.18);
 }
 
 .arrow-icon {
@@ -159,6 +160,19 @@ onMounted(async () => {
 
 .avatar {
   margin-right: 16px;
+}
+
+.avatar-mark {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  font-size: 28px;
+  font-weight: 800;
 }
 
 .info {
@@ -173,7 +187,7 @@ onMounted(async () => {
 
 .desc {
   font-size: 14px;
-  color: #999;
+  color: rgba(255, 255, 255, 0.76);
 }
 
 .menu-list {

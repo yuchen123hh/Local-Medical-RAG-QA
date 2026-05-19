@@ -1,12 +1,12 @@
 <template>
   <div class="sessions-container">
-    <van-nav-bar title="会话管理" fixed />
+    <van-nav-bar title="问答记录" fixed />
     
     <div class="sessions-content">
       <div class="sessions-header">
         <div class="header-title">
-          <van-icon name="chat-o" size="24" color="#1989fa" />
-          <h2>历史会话</h2>
+          <van-icon name="comment-circle-o" size="24" color="#0f766e" />
+          <h2>资料问答记录</h2>
         </div>
         <van-button type="primary" @click="createNewSession">
           新会话
@@ -232,7 +232,9 @@ const confirmNewSession = async () => {
   padding-top: 46px;
   padding-bottom: 50px;
   box-sizing: border-box;
-  background-color: #f7f8fa;
+  background:
+    linear-gradient(180deg, rgba(15, 118, 110, 0.08), rgba(238, 246, 243, 0) 220px),
+    var(--background-color);
 }
 
 .sessions-content {
@@ -246,6 +248,11 @@ const confirmNewSession = async () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid rgba(15, 118, 110, 0.12);
+  border-radius: 8px;
+  background: #fbfdfc;
+  box-shadow: 0 12px 30px rgba(33, 63, 55, 0.07);
 }
 
 .header-title {
@@ -257,7 +264,7 @@ const confirmNewSession = async () => {
 .sessions-header h2 {
   font-size: 18px;
   font-weight: bold;
-  color: #333;
+  color: var(--ink);
   margin: 0;
 }
 
@@ -292,19 +299,19 @@ const confirmNewSession = async () => {
 }
 
 .active {
-  background-color: #f0f9ff !important;
+  background-color: #edf8f5 !important;
 }
 
 .new-session-dialog {
-  background-color: #fff;
-  border-radius: 16px 16px 0 0;
+  background-color: #fbfdfc;
+  border-radius: 8px 8px 0 0;
   padding: 20px;
 }
 
 .new-session-dialog h3 {
   font-size: 18px;
   font-weight: bold;
-  color: #333;
+  color: var(--ink);
   margin: 0 0 20px 0;
   text-align: center;
 }

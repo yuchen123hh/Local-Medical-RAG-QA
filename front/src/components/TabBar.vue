@@ -1,8 +1,9 @@
 <template>
   <van-tabbar v-model="active" route>
-    <van-tabbar-item to="/aichat" icon="chat-o">{{ $t('nav.aiChat') }}</van-tabbar-item>
-    <van-tabbar-item to="/sessions" icon="comment-circle-o">{{ $t('nav.sessions') }}</van-tabbar-item>
-    <van-tabbar-item to="/my" icon="user-o">{{ $t('nav.my') }}</van-tabbar-item>
+    <van-tabbar-item to="/aichat" icon="chat-o">问答</van-tabbar-item>
+    <van-tabbar-item to="/knowledgebase" icon="records-o">资料库</van-tabbar-item>
+    <van-tabbar-item to="/sessions" icon="comment-circle-o">记录</van-tabbar-item>
+    <van-tabbar-item to="/my" icon="user-o">我的</van-tabbar-item>
   </van-tabbar>
 </template>
 
@@ -18,10 +19,12 @@ const setActiveTab = () => {
   const path = route.path
   if (path.includes('/aichat')) {
     active.value = 0
-  } else if (path.includes('/sessions')) {
+  } else if (path.includes('/knowledgebase')) {
     active.value = 1
-  } else if (path.includes('/my')) {
+  } else if (path.includes('/sessions')) {
     active.value = 2
+  } else if (path.includes('/my')) {
+    active.value = 3
   }
 }
 
@@ -35,5 +38,11 @@ watch(() => route.path, () => {
 </script>
 
 <style scoped>
-/* 自定义样式可以在这里添加 */
+:deep(.van-tabbar-item__icon) {
+  margin-bottom: 3px;
+}
+
+:deep(.van-tabbar-item--active) {
+  font-weight: 700;
+}
 </style>
