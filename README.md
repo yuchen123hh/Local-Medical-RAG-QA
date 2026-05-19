@@ -101,6 +101,139 @@ flowchart TD
 
 ## 快速开始
 
+### 本仓库本地运行说明
+
+本仓库已经在 Windows 本地环境验证通过，默认使用：
+
+- 前端：`http://127.0.0.1:3010/`
+- FastAPI 后端：`http://127.0.0.1:8010`
+- Django 用户服务：`http://127.0.0.1:8011`
+- 本地数据库：SQLite
+- 本地缓存：进程内内存缓存
+- 大模型 API：读取本机环境变量 `DASHSCOPE_API_KEY`，不会写入仓库
+
+当前本地开发模式不强制依赖 MySQL、Redis、Docker 或 Ollama。重排序模型启动检查默认可通过 `SKIP_RERANKER_MODEL_CHECK=true` 跳过，避免首次启动下载大模型文件。
+
+#### 1. 克隆仓库
+
+```bash
+git clone https://github.com/yuchen123hh/LangChain-RAG-FastAPI-Service-local.git
+cd LangChain-RAG-FastAPI-Service-local
+```
+
+#### 2. 配置 API Key
+
+在系统环境变量或当前终端中配置阿里百炼 / DashScope Key：
+
+```powershell
+$env:DASHSCOPE_API_KEY="你的阿里百炼APIKey"
+```
+
+不要把真实 API Key 写入 `.env` 后提交。`.env` 已被 `.gitignore` 忽略。
+
+#### 3. 安装依赖
+
+后端服务：
+
+```powershell
+cd backend
+uv sync --python 3.11
+```
+
+Django 用户服务：
+
+```powershell
+cd ..\DjangoUserService
+uv sync --python 3.11
+```
+
+前端：
+
+```powershell
+cd ..\front
+npm.cmd ci
+```
+
+#### 4. 创建本地 `.env`
+
+后端 `backend\.env` 示例：
+
+```env
+LLM_TYPE=ALIYUN
+ALIYUN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+CHAT_MODEL_NAME=qwen3-max
+EMBED_MODEL_TYPE=ALIYUN
+ALIYUN_EMBED_MODEL_NAME=text-embedding-v4
+VISION_MODEL_TYPE=ALIYUN
+VISION_CHAT_MODEL_NAME=qwen-vl-max
+DB_ENGINE=sqlite
+SQLITE_DATABASE=data/chat_history.sqlite3
+REDIS_BACKEND=memory
+RATE_LIMIT_ENABLED=false
+DJANGO_API_URL=http://127.0.0.1:8011
+LANGCHAIN_TRACING_V2=false
+SKIP_RERANKER_MODEL_CHECK=true
+SECRET_KEY=MY_JWT_SECRET_KWY_FOR_USR_AND_I_JUST_WRITE_THIS
+ALGORITHM=HS256
+```
+
+用户服务 `DjangoUserService\.env` 示例：
+
+```env
+JWT_SECRET_KEY=MY_JWT_SECRET_KWY_FOR_USR_AND_I_JUST_WRITE_THIS
+DB_ENGINE=sqlite
+SQLITE_DATABASE=data/user_service.sqlite3
+REDIS_BACKEND=memory
+CELERY_BROKER_URL=memory://
+CELERY_RESULT_BACKEND=cache+memory://
+REDIS_CACHE_URL=redis://localhost:6379/1
+```
+
+两个服务的 JWT 密钥必须一致：后端 `SECRET_KEY` 和用户服务 `JWT_SECRET_KEY` 要使用同一个值。
+
+#### 5. 初始化用户数据库
+
+```powershell
+cd DjangoUserService
+.\.venv\Scripts\python.exe manage.py migrate
+```
+
+#### 6. 启动服务
+
+分别打开三个终端执行：
+
+```powershell
+cd DjangoUserService
+.\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8011 --noreload
+```
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8010
+```
+
+```powershell
+cd front
+$env:VITE_BACKEND_TARGET="http://127.0.0.1:8010"
+$env:VITE_USER_SERVICE_TARGET="http://127.0.0.1:8011"
+npm.cmd run dev -- --host 127.0.0.1 --port 3010
+```
+
+#### 7. 验证
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8010/health/live
+Invoke-RestMethod http://127.0.0.1:8010/health/ready
+```
+
+浏览器打开：
+
+```text
+http://127.0.0.1:3010/
+```
+
+更多本地启动说明见 [LOCAL_DEPLOY.md](./LOCAL_DEPLOY.md)。
+
 ### 环境要求
 
 | 环境 | 版本推荐 |
