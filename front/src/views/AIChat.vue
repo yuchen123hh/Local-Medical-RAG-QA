@@ -143,6 +143,31 @@ const route = useRoute();
 const userStore = useUserStore();
 const sessionStore = useSessionStore();
 
+const resetToFreshChat = () => {
+  sessionId.value = '';
+  sessionStore.setCurrentSession(null);
+  messages.value = [
+    { role: 'assistant', content: '你好，我会优先检索你上传的资料，再给出回答。可以先去资料库上传 PDF、Word、PPT 或 Markdown。' }
+  ];
+  if (route.params.sessionId) {
+    router.replace('/aichat');
+  }
+};
+
+const ensureChatToken = async () => {
+  const storedToken = localStorage.getItem('jwt_token');
+  if (userStore.token && userStore.token !== 'test_token_for_unlogin') {
+    return userStore.token;
+  }
+
+  if (storedToken && storedToken !== 'test_token_for_unlogin') {
+    userStore.restoreFromLocalStorage();
+    return userStore.token;
+  }
+
+  return '';
+};
+
 // 配置marked使用marked-highlight插件
 marked.use(markedHighlight({
   langPrefix: 'hljs language-',
@@ -229,7 +254,8 @@ const sendMessage = async () => {
   if (!userInput.value.trim() || isLoading.value) return;
   
   // 检查是否登录
-  if (!userStore.getLoginStatus) {
+  const token = await ensureChatToken();
+  if (!token) {
     showToast('请先登录');
     return;
   }
@@ -267,7 +293,7 @@ const fetchAIResponse = async (userMessage) => {
     // 确保使用正确的相对路径，通过Vite代理访问
     const url = '/chat/agent/query/stream';
     // 从localStorage获取token
-    const token = localStorage.getItem('jwt_token') || userStore.token;
+    const token = await ensureChatToken();
     // console.log('发送AI请求到:', url);
     // console.log('使用的token:', token);
     
@@ -386,6 +412,11 @@ const fetchAIResponse = async (userMessage) => {
               }
               break;
             case 'error':
+              if ((json.content || '').includes('当前会话不属于你')) {
+                sessionId.value = '';
+                await fetchAIResponse(userMessage);
+                return;
+              }
               throw new Error(json.content || 'API错误');
               break;
           }
@@ -427,23 +458,26 @@ watch(messages, () => {
 
 // 监听路由参数变化，重新加载会话历史
 watch(() => route.params.sessionId, async (newSessionId) => {
+  await ensureChatToken();
   if (newSessionId) {
     try {
       const result = await sessionStore.getSession(newSessionId);
       if (result.success && sessionStore.currentSession) {
         loadSessionHistory(sessionStore.currentSession);
       } else {
-        showToast('加载会话历史失败');
+        resetToFreshChat();
       }
     } catch (error) {
       console.error('加载会话历史失败:', error);
-      showToast('加载会话历史失败');
+      resetToFreshChat();
     }
   }
 }, { immediate: true });
 
 // 组件挂载时检查是否有当前会话或路由参数中的会话ID
 onMounted(async () => {
+  await ensureChatToken();
+
   // 检查路由参数中是否有sessionId
   const routeSessionId = route.params.sessionId;
   
@@ -454,11 +488,11 @@ onMounted(async () => {
       if (result.success && sessionStore.currentSession) {
         loadSessionHistory(sessionStore.currentSession);
       } else {
-        showToast('加载会话历史失败');
+        resetToFreshChat();
       }
     } catch (error) {
       console.error('加载会话历史失败:', error);
-      showToast('加载会话历史失败');
+      resetToFreshChat();
     }
   } else if (sessionStore.currentSession) {
     // 从store中加载会话历史

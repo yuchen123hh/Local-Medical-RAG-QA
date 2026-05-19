@@ -138,12 +138,21 @@ async def markdown_loader(file_path: str) -> list[Document]:
     :return: Markdown文件内容
     """
     abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
-    try:
-        loader = UnstructuredMarkdownLoader(abs_file_path, mode="single")
-        return await asyncio.to_thread(loader.load)
-    except Exception as e:
-        logger.error(f"【Markdown文件加载】加载文件 {abs_file_path} 时出错: {e}")
-        return []
+    encodings = ['utf-8', 'gbk']
+    for encoding in encodings:
+        try:
+            async with aiofiles.open(abs_file_path, "r", encoding=encoding) as f:
+                content = await f.read()
+            if content.strip():
+                return [Document(page_content=content, metadata={"source": abs_file_path})]
+            return []
+        except UnicodeDecodeError:
+            continue
+        except Exception as e:
+            logger.error(f"【Markdown文件加载】加载文件 {abs_file_path} 时出错: {e}")
+            return []
+    logger.error(f"【Markdown文件加载】无法识别文件编码: {abs_file_path}")
+    return []
 
 
 async def ppt_loader(file_path: str) -> list[Document]:
@@ -252,12 +261,21 @@ def markdown_loader_sync(file_path: str) -> list[Document]:
     :return: Markdown文件内容
     """
     abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
-    try:
-        loader = UnstructuredMarkdownLoader(abs_file_path, mode="single")
-        return loader.load()
-    except Exception as e:
-        logger.error(f"【Markdown文件加载】加载文件 {abs_file_path} 时出错: {e}")
-        return []
+    encodings = ['utf-8', 'gbk']
+    for encoding in encodings:
+        try:
+            with open(abs_file_path, "r", encoding=encoding) as f:
+                content = f.read()
+            if content.strip():
+                return [Document(page_content=content, metadata={"source": abs_file_path})]
+            return []
+        except UnicodeDecodeError:
+            continue
+        except Exception as e:
+            logger.error(f"【Markdown文件加载】加载文件 {abs_file_path} 时出错: {e}")
+            return []
+    logger.error(f"【Markdown文件加载】无法识别文件编码: {abs_file_path}")
+    return []
 
 
 def ppt_loader_sync(file_path: str) -> list[Document]:

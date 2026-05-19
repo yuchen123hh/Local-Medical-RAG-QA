@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List
 import os
+import time
 from dotenv import load_dotenv
 
 from langchain_community.chat_models.tongyi import ChatTongyi
@@ -23,35 +24,76 @@ class DashScopeEmbeddingsWrapper(Embeddings):
             self.dashscope = dashscope
             self.dashscope.api_key = api_key or os.getenv("ALIYUN_ACCESS_KEY_SECRET") or os.getenv("DASHSCOPE_API_KEY")
             self.model_name = model_name
+            self.batch_size = min(int(os.getenv("ALIYUN_EMBED_BATCH_SIZE", "10")), 10)
+            self.max_retries = int(os.getenv("ALIYUN_EMBED_MAX_RETRIES", "3"))
         except ImportError:
             raise ImportError("需要安装 dashscope 库: pip install dashscope")
+
+    def _extract_embeddings(self, resp, expected_count: int) -> List[List[float]]:
+        if getattr(resp, "status_code", None) != 200:
+            message = getattr(resp, "message", None) or getattr(resp, "code", None) or "unknown error"
+            raise RuntimeError(f"阿里云嵌入调用失败: {message}")
+
+        output = getattr(resp, "output", None) or {}
+        embeddings = None
+
+        if isinstance(output, dict):
+            if "embeddings" in output:
+                raw_items = output["embeddings"]
+                if raw_items and isinstance(raw_items[0], dict):
+                    raw_items = sorted(raw_items, key=lambda item: item.get("text_index", 0))
+                    embeddings = [item.get("embedding") for item in raw_items]
+                else:
+                    embeddings = raw_items
+            elif "embedding" in output:
+                embeddings = [output["embedding"]]
+        else:
+            raw_items = getattr(output, "embeddings", None)
+            if raw_items is not None:
+                embeddings = [item.embedding for item in raw_items]
+
+        if not embeddings or len(embeddings) != expected_count or any(not item for item in embeddings):
+            keys = list(output.keys()) if isinstance(output, dict) else []
+            raise RuntimeError(f"阿里云嵌入返回格式异常，期望 {expected_count} 条，实际 {len(embeddings or [])} 条，output keys: {keys}")
+
+        return embeddings
     
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """批量嵌入文档"""
         results = []
-        for text in texts:
-            resp = self.dashscope.TextEmbedding.call(
-                model=self.model_name,
-                input=text
-            )
-            if resp.status_code == 200:
-                results.append(resp.output['embedding'])
-            else:
-                logger.error(f"阿里云嵌入调用失败: {resp.message}")
-                results.append([])
+        for start in range(0, len(texts), self.batch_size):
+            batch = texts[start:start + self.batch_size]
+            for attempt in range(1, self.max_retries + 1):
+                try:
+                    resp = self.dashscope.TextEmbedding.call(
+                        model=self.model_name,
+                        input=batch
+                    )
+                    results.extend(self._extract_embeddings(resp, len(batch)))
+                    break
+                except Exception as e:
+                    if attempt >= self.max_retries:
+                        raise
+                    wait_seconds = min(2 ** attempt, 10)
+                    logger.warning(f"阿里云嵌入批量调用失败，{wait_seconds}秒后重试({attempt}/{self.max_retries}): {e}")
+                    time.sleep(wait_seconds)
         return results
     
     def embed_query(self, text: str) -> List[float]:
         """嵌入单个查询"""
-        resp = self.dashscope.TextEmbedding.call(
-            model=self.model_name,
-            input=text
-        )
-        if resp.status_code == 200:
-            return resp.output['embedding']
-        else:
-            logger.error(f"阿里云嵌入调用失败: {resp.message}")
-            return []
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                resp = self.dashscope.TextEmbedding.call(
+                    model=self.model_name,
+                    input=text
+                )
+                return self._extract_embeddings(resp, 1)[0]
+            except Exception as e:
+                if attempt >= self.max_retries:
+                    raise
+                wait_seconds = min(2 ** attempt, 10)
+                logger.warning(f"阿里云嵌入查询调用失败，{wait_seconds}秒后重试({attempt}/{self.max_retries}): {e}")
+                time.sleep(wait_seconds)
 
 
 class BaseModelFactory(ABC):

@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-const backendTarget = process.env.VITE_BACKEND_TARGET || 'http://127.0.0.1:8000'
-const userServiceTarget = process.env.VITE_USER_SERVICE_TARGET || 'http://127.0.0.1:8001'
+const backendTarget = process.env.VITE_BACKEND_TARGET || 'http://127.0.0.1:8010'
+const userServiceTarget = process.env.VITE_USER_SERVICE_TARGET || 'http://127.0.0.1:8011'
 
 // https://vite.dev/config/
 export default defineConfig({

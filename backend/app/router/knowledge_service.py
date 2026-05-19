@@ -15,9 +15,15 @@ from app.core.logger_handler import logger
 from app.rag.vector_store import VectorStoreService
 from app.rag.task_queue import TaskQueue
 from app.rag.sse_models import SSEEvent, SliceResult
+from app.rag.retrievers.builtin_medical_retriever import (
+    get_builtin_medical_chunks,
+    get_builtin_medical_corpus_info,
+    get_builtin_medical_document_detail,
+)
 from app.utils.file_handler import get_file_md5_hex_sync
 
 
+SHARED_MEDICAL_USER_ID = os.getenv("SHARED_MEDICAL_USER_ID", "agYcn9m9kHM9AHaHMEcRby")
 
 ALLOWED_EXTENSIONS = {'.pdf', '.txt', '.md', '.pptx', '.docx'}
 ALLOWED_MIME_TYPES = {
@@ -451,10 +457,32 @@ class KnowledgeService:
     async def handle_get_user_knowledge(self, user_id: str) -> list:
         store = VectorStoreService()
         documents = await store.get_user_documents(user_id)
-        logger.info(f"【知识库】获取用户 {user_id} 的知识库文档，共 {len(documents)} 个文件")
+        builtin_info = get_builtin_medical_corpus_info()
+        if builtin_info:
+            documents.append(builtin_info)
+        if user_id != SHARED_MEDICAL_USER_ID:
+            shared_documents = await store.get_user_documents(SHARED_MEDICAL_USER_ID)
+            existing = {
+                (doc.get("filename"), doc.get("user_id"))
+                for doc in documents
+            }
+            for doc in shared_documents:
+                key = (doc.get("filename"), doc.get("user_id"))
+                if key in existing:
+                    continue
+                shared_doc = dict(doc)
+                shared_doc["original_filename"] = f"共享医疗知识库｜{shared_doc.get('original_filename') or shared_doc.get('filename')}"
+                documents.append(shared_doc)
+
+        logger.info(f"【知识库】获取用户 {user_id} 的知识库文档（含共享库），共 {len(documents)} 个文件")
         return documents
 
     async def handle_get_document_detail(self, user_id: str, filename: str) -> dict:
+        builtin_document = get_builtin_medical_document_detail(filename)
+        if builtin_document:
+            logger.info(f"【知识库】获取内置医疗文档详情: {filename}")
+            return builtin_document
+
         store = VectorStoreService()
         document = await store.get_document_detail(user_id, filename)
         if not document:
@@ -463,6 +491,11 @@ class KnowledgeService:
         return document
 
     async def handle_get_document_chunks(self, user_id: str, filename: str) -> dict:
+        builtin_chunks = get_builtin_medical_chunks(filename)
+        if builtin_chunks:
+            logger.info(f"【知识库】获取内置医疗文档切片: {filename}")
+            return builtin_chunks
+
         store = VectorStoreService()
         chunks = await store.get_document_chunks(user_id, filename)
         if chunks['total_chunks'] == 0:

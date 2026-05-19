@@ -2,6 +2,7 @@ import asyncio
 import os
 import threading
 import shutil
+import sqlite3
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -241,6 +242,87 @@ class VectorStoreService:
             logger.error(f"【向量数据库】获取用户 {user_id} 的MD5记录时出错: {e}")
             return []
 
+    def _get_user_documents_from_sqlite(self, user_id: str = None):
+        persist_dir = get_abstract_path(chroma_config['persist_directory'])
+        db_path = os.path.join(persist_dir, "chroma.sqlite3")
+        if not os.path.exists(db_path):
+            return None
+
+        if user_id:
+            user_filter = """
+                WHERE e.id IN (
+                    SELECT id FROM embedding_metadata
+                    WHERE key = 'user_id' AND string_value = ?
+                )
+            """
+            params = (user_id,)
+        else:
+            user_filter = ""
+            params = ()
+
+        query = f"""
+            WITH meta AS (
+                SELECT
+                    e.id AS row_id,
+                    e.embedding_id,
+                    MAX(CASE WHEN m.key = 'user_id' THEN m.string_value END) AS user_id,
+                    MAX(CASE WHEN m.key = 'original_filename' THEN m.string_value END) AS original_filename,
+                    MAX(CASE WHEN m.key = 'source' THEN m.string_value END) AS source,
+                    MAX(CASE WHEN m.key = 'filename' THEN m.string_value END) AS stored_filename,
+                    MAX(CASE WHEN m.key = 'created_at' THEN m.string_value END) AS created_at,
+                    MAX(CASE WHEN m.key = 'chroma:document' THEN m.string_value END) AS document
+                FROM embeddings e
+                LEFT JOIN embedding_metadata m ON e.id = m.id
+                {user_filter}
+                GROUP BY e.id, e.embedding_id
+            ),
+            named AS (
+                SELECT
+                    *,
+                    COALESCE(original_filename, source, stored_filename, 'unknown') AS filename_key
+                FROM meta
+            ),
+            ranked AS (
+                SELECT
+                    *,
+                    COUNT(*) OVER (PARTITION BY filename_key) AS chunk_count,
+                    ROW_NUMBER() OVER (PARTITION BY filename_key ORDER BY row_id) AS rn
+                FROM named
+            )
+            SELECT
+                embedding_id,
+                filename_key,
+                original_filename,
+                user_id,
+                chunk_count,
+                SUBSTR(COALESCE(document, ''), 1, 100) AS preview,
+                created_at
+            FROM ranked
+            WHERE rn = 1
+            ORDER BY filename_key
+        """
+
+        with sqlite3.connect(f"file:{db_path.replace(os.sep, '/')}?mode=ro", uri=True, timeout=30) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(query, params).fetchall()
+
+        result = []
+        for row in rows:
+            filename = row["filename_key"] or "unknown"
+            if isinstance(filename, str) and '\\' in filename:
+                filename = os.path.basename(filename)
+            preview = row["preview"] or ""
+            result.append({
+                'id': row["embedding_id"],
+                'filename': filename,
+                'original_filename': row["original_filename"] or filename,
+                'user_id': row["user_id"],
+                'chunk_count': row["chunk_count"],
+                'preview': preview + ("..." if len(preview) == 100 else ""),
+                'created_at': row["created_at"]
+            })
+        return result
+
     async def get_user_documents(self, user_id: str = None):
         """
         获取用户的知识库文档列表
@@ -248,6 +330,11 @@ class VectorStoreService:
         :return: 文档信息列表，包含文件名、文档数量、预览等信息
         """
         try:
+            sqlite_result = await asyncio.to_thread(self._get_user_documents_from_sqlite, user_id)
+            if sqlite_result is not None:
+                logger.info(f"【向量数据库】通过SQLite获取用户 {user_id} 的知识库文档，共 {len(sqlite_result)} 个文件")
+                return sqlite_result
+
             where_clause = {"user_id": user_id} if user_id else None
             all_docs = await asyncio.to_thread(
                 self.vectors_store.get,

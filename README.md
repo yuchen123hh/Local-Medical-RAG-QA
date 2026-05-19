@@ -1,365 +1,234 @@
-# Local Knowledge RAG Workbench
+# 本地 RAG 医疗问答系统
 
-这是一个面向本地部署的私有资料问答系统。你可以上传 PDF、Word、PPT、Markdown 或 TXT 文档，系统会把文档切片、写入向量库，并在聊天时优先检索当前账号上传的资料，再组织成回答。
+这是一个可以在 Windows 本地运行的医疗知识问答系统。用户登录后可以直接提问常见疾病、症状判断、检查方向、用药注意事项、复诊条件等问题；系统会先检索本地医疗语料，再调用大模型生成回答。
 
-本仓库已经针对 Windows 本地运行做过适配：可以不安装 MySQL、Redis、Docker 或 Ollama，直接使用 SQLite、进程内缓存和阿里百炼 DashScope API 跑通完整流程。
+项目默认使用阿里百炼 DashScope 大模型，API Key 从本机环境变量读取。仓库内置 10 万条医疗知识卡 Markdown 语料，直接走本地关键词检索，不需要先导入向量库，也不会因为导入语料产生 embedding 费用。
 
-## 适合做什么
+> 注意：本项目适合学习、毕业设计、RAG 原型验证和健康科普场景，不替代执业医师诊断、处方或急救指导。
 
-- 个人资料库问答：论文、课程资料、读书笔记、技术文档。
-- 企业内部文档问答：制度、产品手册、培训材料、项目文档。
-- 客服或售前知识库原型：上传产品资料后按文档内容回答。
-- RAG 学习项目：查看文档切片、向量检索、BM25 检索、重排序、流式回答的完整链路。
+## 主要功能
 
-它不是联网搜索工具。系统主要回答来自你上传的资料。
+- 本地医疗问答：围绕常见疾病、常见症状、检查方向、危险信号和就诊科室进行问答。
+- 内置医疗语料：仓库自带 10 万条知识卡，覆盖呼吸、心血管、消化、内分泌、神经、泌尿、骨科、皮肤、感染、儿科、妇产科、五官、心理睡眠等方向。
+- 资料库上传：支持 PDF、TXT、Markdown、Word、PPT，上传后可切片并写入 Chroma 向量库。
+- 混合检索：内置 Markdown 关键词检索 + Chroma 向量检索 + SQLite 关键词检索。
+- 流式回答：前端实时显示回答内容和检索轨迹。
+- 用户系统：Django 提供注册、登录、JWT 鉴权；FastAPI 负责 RAG 和聊天接口。
+- 本地即用：默认 SQLite 和内存缓存，不强制安装 MySQL、Redis、Docker。
 
-## 功能概览
+## 技术栈
 
-- 用户注册、登录和 JWT 鉴权。
-- 每个用户拥有独立知识库，检索时按 `user_id` 隔离。
-- 支持上传 `.pdf`、`.txt`、`.md`、`.docx`、`.pptx`。
-- 支持文档切片、MD5 去重、文档列表、切片查看和删除。
-- 使用 ChromaDB 做向量库。
-- 使用向量检索 + BM25 关键词检索的混合检索。
-- 查询时使用 HyDE 思路增强检索。
-- 支持重排序和流式回答。
-- 前端提供聊天、资料库、会话记录、个人中心页面。
+| 模块 | 技术 |
+| --- | --- |
+| 前端 | Vue 3、Vite、Vant、Pinia |
+| RAG 后端 | FastAPI、LangChain、ChromaDB、SQLite |
+| 用户服务 | Django、Django REST Framework、JWT |
+| 大模型 | 阿里百炼 DashScope，默认 `qwen3-max` |
+| Embedding | 阿里百炼 `text-embedding-v4`，仅上传新文档或手动导入向量时使用 |
+| 本地语料检索 | Markdown 知识卡 + 自定义关键词检索器 |
 
-## 本地访问地址
-
-本地默认端口如下：
-
-| 服务 | 地址 | 说明 |
-| --- | --- | --- |
-| 前端 | `http://127.0.0.1:3010/` | Vue + Vite 页面 |
-| FastAPI 后端 | `http://127.0.0.1:8010` | 聊天、RAG、知识库接口 |
-| Django 用户服务 | `http://127.0.0.1:8011` | 注册、登录、用户资料接口 |
-
-如果你机器上端口冲突，可以改启动命令中的端口，同时同步修改前端代理环境变量。
-
-## 技术结构
+## 目录说明
 
 ```text
-front/                Vue 3 前端
-backend/              FastAPI + LangChain RAG 服务
-DjangoUserService/    Django 用户服务
-backend/data/         本地向量库、SQLite、上传资料缓存，默认不提交
+front/                         前端页面
+backend/                       FastAPI RAG 服务
+DjangoUserService/             Django 用户服务
+docs/rag_test_corpus/split_100k 内置 10 万条医疗语料，已拆分为 20 个 Markdown 文件
+scripts/                       Windows 一键安装、启动、停止脚本
+tools/                         语料生成和可选向量导入工具
 ```
 
-核心调用链：
+## 运行环境
 
-```text
-用户提问
-  -> FastAPI 鉴权
-  -> 按 user_id 检索当前用户文档
-  -> HyDE 生成检索查询
-  -> Chroma 向量检索 + BM25 关键词检索
-  -> 文档重排序
-  -> 大模型总结回答
-  -> SSE 流式返回前端
-```
-
-## 环境要求
-
-建议环境：
+建议使用：
 
 - Windows 10/11
 - Python 3.11
-- Node.js 18 或更新版本
+- Node.js 18 或更高版本
 - Git
-- `uv`
-- 阿里百炼 / DashScope API Key
+- 阿里百炼 DashScope API Key
 
-安装 `uv`：
-
-```powershell
-py -m pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
-
-确认命令可用：
+检查环境：
 
 ```powershell
 py --version
 node --version
 npm.cmd --version
-uv --version
+git --version
 ```
 
-## 克隆项目
+## 1. 克隆项目
 
 ```powershell
 git clone https://github.com/yuchen123hh/LangChain-RAG-FastAPI-Service-local.git
 cd LangChain-RAG-FastAPI-Service-local
 ```
 
-## 配置 API Key
+## 2. 配置 API Key
 
-本地运行使用你电脑环境变量里的 `DASHSCOPE_API_KEY`。不要把真实 API Key 写进 Git 仓库。
+系统会从环境变量读取你的 DashScope API Key，不需要写进代码。
 
-当前 PowerShell 临时配置：
+临时配置，只在当前 PowerShell 窗口生效：
 
 ```powershell
 $env:DASHSCOPE_API_KEY="你的阿里百炼APIKey"
 ```
 
-如果要长期生效，可以在 Windows 系统环境变量里添加 `DASHSCOPE_API_KEY`。
-
-后端代码也兼容 `ALIYUN_ACCESS_KEY_SECRET`，但本仓库推荐使用 `DASHSCOPE_API_KEY`，避免把 key 写到 `.env`。
-
-## 安装依赖
-
-### FastAPI 后端
+长期配置，写入当前 Windows 用户环境变量：
 
 ```powershell
-cd backend
-uv sync --python 3.11
+[Environment]::SetEnvironmentVariable("DASHSCOPE_API_KEY", "你的阿里百炼APIKey", "User")
 ```
 
-### Django 用户服务
+配置后重新打开 PowerShell，再检查：
 
 ```powershell
-cd ..\DjangoUserService
-uv sync --python 3.11
+$env:DASHSCOPE_API_KEY
 ```
 
-### 前端
+## 3. 一键安装依赖
+
+首次运行执行：
 
 ```powershell
-cd ..\front
-npm.cmd ci
+powershell -ExecutionPolicy Bypass -File scripts\setup_windows.ps1
 ```
 
-## 创建本地配置文件
+这个脚本会完成：
 
-`.env` 文件只用于本地运行，已经被 `.gitignore` 忽略。
+- 安装 `uv`。
+- 复制 `backend/.env.example` 为 `backend/.env`。
+- 复制 `DjangoUserService/.env.example` 为 `DjangoUserService/.env`。
+- 安装 FastAPI 后端依赖。
+- 安装 Django 用户服务依赖。
+- 执行 Django 数据库迁移。
+- 安装前端依赖。
 
-### `backend\.env`
-
-```env
-LLM_TYPE=ALIYUN
-ALIYUN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-CHAT_MODEL_NAME=qwen3-max
-
-EMBED_MODEL_TYPE=ALIYUN
-ALIYUN_EMBED_MODEL_NAME=text-embedding-v4
-
-VISION_MODEL_TYPE=ALIYUN
-VISION_CHAT_MODEL_NAME=qwen-vl-max
-
-DB_ENGINE=sqlite
-SQLITE_DATABASE=data/chat_history.sqlite3
-
-REDIS_BACKEND=memory
-RATE_LIMIT_ENABLED=false
-
-DJANGO_API_URL=http://127.0.0.1:8011
-
-LANGCHAIN_TRACING_V2=false
-SKIP_RERANKER_MODEL_CHECK=true
-
-SECRET_KEY=MY_LOCAL_JWT_SECRET_CHANGE_ME
-ALGORITHM=HS256
-```
-
-### `DjangoUserService\.env`
-
-```env
-JWT_SECRET_KEY=MY_LOCAL_JWT_SECRET_CHANGE_ME
-
-DB_ENGINE=sqlite
-SQLITE_DATABASE=data/user_service.sqlite3
-
-REDIS_BACKEND=memory
-CELERY_BROKER_URL=memory://
-CELERY_RESULT_BACKEND=cache+memory://
-REDIS_CACHE_URL=redis://localhost:6379/1
-```
-
-注意：`backend\.env` 的 `SECRET_KEY` 必须和 `DjangoUserService\.env` 的 `JWT_SECRET_KEY` 完全一致，否则登录后的 token 不能被 FastAPI 验证。
-
-## 初始化数据库
-
-用户服务第一次运行前需要迁移数据库：
+如果你只想安装后端和用户服务，可以跳过前端：
 
 ```powershell
-cd DjangoUserService
-.\.venv\Scripts\python.exe manage.py migrate
+powershell -ExecutionPolicy Bypass -File scripts\setup_windows.ps1 -SkipFrontend
 ```
 
-本地 SQLite 文件会生成在：
+## 4. 启动系统
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start_all_windows.ps1
+```
+
+默认地址：
+
+| 服务 | 地址 |
+| --- | --- |
+| 前端页面 | `http://127.0.0.1:3010/` |
+| FastAPI 接口文档 | `http://127.0.0.1:8010/docs` |
+| Django 用户服务 | `http://127.0.0.1:8011` |
+
+停止服务：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\stop_all_windows.ps1
+```
+
+## 5. 使用方法
+
+1. 打开 `http://127.0.0.1:3010/`。
+2. 注册一个账号并登录。
+3. 进入聊天页面，直接提问，例如：
+   - `感冒头晕鼻塞怎么办，需要吃什么药吗？`
+   - `高血压平时要注意哪些指标？`
+   - `孩子发热咳嗽什么时候需要去医院？`
+   - `糖尿病人脚麻要考虑什么问题？`
+4. 进入资料库页面，可以看到内置医疗知识库。
+5. 如需加入自己的资料，点击资料库上传 PDF、Word、PPT、Markdown 或 TXT。
+
+## 内置医疗语料说明
+
+语料位置：
 
 ```text
-DjangoUserService/data/user_service.sqlite3
+docs/rag_test_corpus/split_100k/
 ```
 
-聊天历史 SQLite 会在 FastAPI 启动时自动创建：
+这批语料被拆成 20 个 Markdown 文件，每个文件约 5000 条知识卡，总量约 10 万条。每条知识卡包含：
 
-```text
-backend/data/chat_history.sqlite3
-```
+- 疾病所属系统
+- 疾病名称
+- 使用场景
+- 适用人群
+- 风险分层
+- 常见表现
+- 辅助检查
+- 鉴别方向
+- 处理原则
+- 危险信号
+- 建议就诊科室
+- RAG 检索关键词
 
-这些本地数据文件不会被提交。
+为了让项目从 GitHub 下载后更容易运行，系统默认直接检索这些 Markdown 文件，而不是要求你先把 10 万条语料导入 Chroma。这样启动快，也不会产生 embedding 导入费用。
 
-## 启动服务
+## 是否需要导入向量库
 
-打开三个 PowerShell 终端，分别执行下面命令。
+默认不需要。
 
-### 1. 启动 Django 用户服务
+内置医疗语料已经可以直接参与问答。只有你想测试“10 万条语料全部写入 Chroma 向量库”的效果时，才需要运行可选导入脚本：
 
 ```powershell
-cd D:\codex\LangChain-RAG-FastAPI-Service-master\DjangoUserService
-.\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8011 --noreload
+powershell -ExecutionPolicy Bypass -File scripts\import_medical_corpus_windows.ps1
 ```
 
-### 2. 启动 FastAPI 后端
+注意：这个脚本会调用 embedding API，可能产生费用。导入后的 Chroma 数据会保存在 `backend/data/chromadb/`，该目录不会提交到 GitHub。
 
-```powershell
-cd D:\codex\LangChain-RAG-FastAPI-Service-master\backend
-.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8010
-```
+## API Key 和费用
 
-### 3. 启动前端
-
-```powershell
-cd D:\codex\LangChain-RAG-FastAPI-Service-master\front
-$env:VITE_BACKEND_TARGET="http://127.0.0.1:8010"
-$env:VITE_USER_SERVICE_TARGET="http://127.0.0.1:8011"
-npm.cmd run dev -- --host 127.0.0.1 --port 3010
-```
-
-浏览器打开：
-
-```text
-http://127.0.0.1:3010/
-```
-
-## 使用流程
-
-1. 打开前端页面。
-2. 注册账号或使用测试账号登录。
-3. 进入“资料库”页面。
-4. 上传 PDF、Word、PPT、Markdown 或 TXT。
-5. 等待切片和索引完成。
-6. 回到“问答”页面。
-7. 提问和上传资料相关的问题。
-8. 查看回答中的检索轨迹和会话记录。
-
-## 验证服务是否正常
-
-FastAPI 健康检查：
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:8010/health/live
-Invoke-RestMethod http://127.0.0.1:8010/health/ready
-```
-
-前端检查：
-
-```powershell
-Invoke-WebRequest http://127.0.0.1:3010/
-```
-
-用户接口可以通过注册和登录验证：
-
-```powershell
-$body = @{
-  username = "demo_user"
-  email = "demo_user@example.com"
-  telephone = "13900000001"
-  password = "123456"
-  confirm_password = "123456"
-} | ConvertTo-Json
-
-Invoke-RestMethod -Uri "http://127.0.0.1:8011/user/register/" -Method POST -Body $body -ContentType "application/json"
-```
-
-## 本地开发模式和生产模式的区别
-
-本地开发默认：
-
-- `DB_ENGINE=sqlite`
-- `REDIS_BACKEND=memory`
-- `EMBED_MODEL_TYPE=ALIYUN`
-- `SKIP_RERANKER_MODEL_CHECK=true`
-
-这样可以快速跑通，不需要安装 MySQL、Redis、Docker 或本地模型。
-
-如果要部署到更正式的环境，建议改回：
-
-- MySQL 保存用户和会话数据
-- Redis 做缓存、限流和 token 黑名单
-- 单独准备模型缓存目录
-- 使用稳定的进程管理工具运行 FastAPI、Django 和前端构建产物
+- 聊天回答会调用大模型 API，可能产生模型调用费用。
+- 默认内置医疗语料检索不调用 embedding，不产生导入费用。
+- 上传你自己的新文档时，系统会为新文档生成 embedding，可能产生费用。
+- 仓库不会提交真实 API Key。请在本机环境变量 `DASHSCOPE_API_KEY` 中配置。
 
 ## 常见问题
 
-### 1. 登录后聊天接口返回 401
+### 1. 登录后问答报 401 或 403
 
-检查两个 `.env` 里的 JWT 密钥是否一致：
+确认 `backend/.env` 的 `SECRET_KEY` 和 `DjangoUserService/.env` 的 `JWT_SECRET_KEY` 完全一致。默认模板里已经一致，不要只改其中一个。
 
-```text
-backend SECRET_KEY
-DjangoUserService JWT_SECRET_KEY
-```
+### 2. 资料库显示为空
 
-### 2. 大模型调用失败
-
-确认本机有 `DASHSCOPE_API_KEY`：
+正常情况下会显示“内置医疗知识库｜常见疾病诊疗语料（100000条）”。如果没有显示，检查：
 
 ```powershell
-echo $env:DASHSCOPE_API_KEY
+Test-Path docs\rag_test_corpus\split_100k
 ```
 
-如果为空，需要重新配置。
+并确认 `backend/.env` 中：
 
-### 3. 前端能打开但接口不通
+```env
+BUILTIN_MEDICAL_CORPUS_ENABLED=true
+```
 
-检查三个服务是否都在监听：
+### 3. 提问没有医疗知识库效果
+
+先确认 FastAPI 后端正在运行，并查看日志：
 
 ```powershell
-netstat -ano | Select-String ':8010|:8011|:3010'
+Get-Content logs\fastapi-rag-service.err.log -Tail 80
+Get-Content logs\fastapi-rag-service.out.log -Tail 80
 ```
 
-同时确认前端启动时设置了：
+也可以直接打开 `http://127.0.0.1:8010/docs` 测试接口。
+
+### 4. 端口被占用
+
+改启动端口：
 
 ```powershell
-$env:VITE_BACKEND_TARGET="http://127.0.0.1:8010"
-$env:VITE_USER_SERVICE_TARGET="http://127.0.0.1:8011"
+powershell -ExecutionPolicy Bypass -File scripts\start_all_windows.ps1 -BackendPort 8020 -UserPort 8021 -FrontPort 3020
 ```
 
-### 4. 上传文档后问答没有检索结果
+### 5. 不想使用阿里百炼
 
-先确认：
+可以改 `backend/.env`，把 `LLM_TYPE` 和 `EMBED_MODEL_TYPE` 换成 `OLLAMA`，并准备好本地 Ollama 模型。这个模式适合完全离线测试，但模型效果取决于本机显卡和模型大小。
 
-- 已登录。
-- 文档上传成功。
-- 上传的是支持格式。
-- 提问内容和文档内容相关。
-- 当前账号和上传账号是同一个。
+## 重要声明
 
-知识库按用户隔离，不会检索其他用户上传的资料。
-
-### 5. 不想每次都开三个终端
-
-可以用 PowerShell 脚本或进程管理工具封装启动命令。当前仓库先保留显式启动方式，便于调试。
-
-## 文件不会提交的内容
-
-`.gitignore` 已经排除：
-
-- `.env`
-- `.venv/`
-- `node_modules/`
-- `dist/`
-- `data/`
-- `logs/`
-- `*.sqlite3`
-- Python 缓存文件
-
-因此 API Key、本地数据库、上传资料、向量库和日志不会进入 GitHub。
-
-## 更多说明
-
-本地启动命令也整理在：
-
-[LOCAL_DEPLOY.md](./LOCAL_DEPLOY.md)
+本项目输出内容只用于知识检索和健康科普参考，不构成诊断、处方、治疗方案或急救指导。真实患者应咨询执业医师；出现胸痛、呼吸困难、意识障碍、严重出血、持续高热、抽搐、偏瘫、剧烈腹痛等危险信号时，应立即就医。

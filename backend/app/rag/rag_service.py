@@ -76,7 +76,7 @@ class RagService:
 
     @traceable
     async def retrieve_document(self, query: str) -> list:
-        """使用HyDE技术 从向量数据库里检索文档"""
+        """优先使用原始问题检索，HyDE 只作为补充召回。"""
         if not self.user_id:
             logger.warning(f"【HyDE】user_id为空，不进行任何检索")
             return []
@@ -86,15 +86,17 @@ class RagService:
             if self.retriever is None:
                 await self.initialize_retriever(query)
             
-            # 使用HyDE技术生成假设性文档
-            logger.info(f"【HyDE】开始处理查询: {query}")
+            logger.info(f"【RAG】开始处理查询: {query}")
             
             if self.thinking_callback:
                 await self.thinking_callback({
                     "type": "thinking",
-                    "stage": "hyde",
-                    "content": f"正在基于查询「{query}」生成假设性文档..."
+                    "stage": "retrieval",
+                    "content": f"正在基于原始问题「{query}」检索文档..."
                 })
+
+            documents = await self.retriever.ainvoke(query)
+            logger.info(f"【RAG】原始问题检索到 {len(documents)} 个相关文档")
             
             hypothetical_doc = await self.generate_hypothetical_document(query)
             
@@ -108,8 +110,7 @@ class RagService:
                     }
                 })
             
-            # 使用假设性文档进行检索
-            logger.info(f"【HyDE】使用假设性文档进行检索")
+            logger.info(f"【HyDE】使用假设性文档补充检索")
             
             if self.thinking_callback:
                 await self.thinking_callback({
@@ -118,12 +119,25 @@ class RagService:
                     "content": "正在向量数据库中检索相关文档..."
                 })
             
-            documents = await self.retriever.ainvoke(hypothetical_doc)
-            logger.info(f"【HyDE】检索到 {len(documents)} 个相关文档")
+            hyde_documents = await self.retriever.ainvoke(hypothetical_doc)
+            logger.info(f"【HyDE】补充检索到 {len(hyde_documents)} 个相关文档")
+
+            seen = set()
+            merged_documents = []
+            for doc in [*documents, *hyde_documents]:
+                key = (
+                    doc.metadata.get("record_id"),
+                    doc.metadata.get("source"),
+                    doc.page_content[:120],
+                )
+                if key in seen:
+                    continue
+                seen.add(key)
+                merged_documents.append(doc)
             
             if self.thinking_callback:
                 doc_previews = []
-                for i, doc in enumerate(documents, 1):
+                for i, doc in enumerate(merged_documents, 1):
                     preview = doc.page_content[:150] + "..." if len(doc.page_content) > 150 else doc.page_content
                     doc_previews.append({
                         "index": i,
@@ -133,13 +147,13 @@ class RagService:
                 await self.thinking_callback({
                     "type": "thinking",
                     "stage": "retrieval",
-                    "content": f"检索到 {len(documents)} 个相关文档",
+                    "content": f"检索到 {len(merged_documents)} 个相关文档",
                     "details": {
                         "documents": doc_previews
                     }
                 })
             
-            return documents
+            return merged_documents
         except Exception as e:
             logger.error(f"【HyDE】检索文档失败: {e}")
             return []

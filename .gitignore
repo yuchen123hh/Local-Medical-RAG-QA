@@ -69,6 +69,12 @@ langchain-*/
 # ChromaDB
 chromadb/
 
+# Large generated corpus files. Keep split_100k/*.md instead.
+docs/rag_test_corpus/medical_rag_corpus_100000.md
+docs/rag_test_corpus/medical_rag_corpus_10000.md
+docs/rag_test_corpus/split/
+docs/rag_test_corpus/split_small/
+
 # Jupyter notebooks
 .ipynb_checkpoints/
 

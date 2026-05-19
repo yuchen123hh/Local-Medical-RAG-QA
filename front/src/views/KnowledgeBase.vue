@@ -259,6 +259,18 @@ const detailPageImages = ref([]);
 
 const { getAllImages, resolveImageUrls } = useAuthImage();
 
+const ensureKnowledgeToken = async () => {
+  if (userStore.token) {
+    return userStore.token;
+  }
+
+  if (userStore.restoreFromLocalStorage()) {
+    return userStore.token;
+  }
+
+  return '';
+};
+
 // 将文档详情接口返回的图片URL列表按页分组（图片命名规则：p{page}_i{index}.{ext}），
 // 然后从批量图片缓存（imageMap）中查找对应的 base64 data URL
 const groupImagesByPage = (imagePaths, imageMap) => {
@@ -289,7 +301,11 @@ const documentActions = ref([
 ]);
 
 const onClickLeft = () => {
-  router.back();
+  if (router.options.history.state.back) {
+    router.back();
+    return;
+  }
+  router.push('/aichat');
 };
 
 const openFilePicker = () => {
@@ -435,7 +451,7 @@ const parseEvent = (event) => {
 };
 
 const fetchDocuments = async () => {
-  const token = userStore.token;
+  const token = await ensureKnowledgeToken();
   if (!token) {
     return;
   }
@@ -449,6 +465,12 @@ const fetchDocuments = async () => {
         'Accept': 'application/json'
       }
     });
+
+    if (response.status === 401 || response.status === 403) {
+      showToast(t('common.login'));
+      router.push('/login');
+      return;
+    }
 
     if (response.ok) {
       const result = await response.json();

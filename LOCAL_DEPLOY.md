@@ -1,46 +1,63 @@
-# Local Deployment
+# 本地部署速查
 
-This project is configured to run locally without external MySQL or Redis.
-
-## Services
-
-- FastAPI backend: http://127.0.0.1:8010
-- Django user service: http://127.0.0.1:8011
-- Vue frontend: http://127.0.0.1:3010
-
-## Local Runtime Choices
-
-- Python services use Python 3.11 virtual environments created by `uv`.
-- `backend/.env` maps the Aliyun/DashScope API key from your shell environment. Keep `DASHSCOPE_API_KEY` configured locally.
-- `DB_ENGINE=sqlite` is used for local development.
-- `REDIS_BACKEND=memory` is used for local development.
-- `SKIP_RERANKER_MODEL_CHECK=true` avoids downloading the reranker model during service startup.
-
-## Start Commands
-
-Run each command in a separate terminal.
+## 第一次安装
 
 ```powershell
-cd D:\codex\LangChain-RAG-FastAPI-Service-master\DjangoUserService
-.\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8011 --noreload
+git clone https://github.com/yuchen123hh/LangChain-RAG-FastAPI-Service-local.git
+cd LangChain-RAG-FastAPI-Service-local
+[Environment]::SetEnvironmentVariable("DASHSCOPE_API_KEY", "你的阿里百炼APIKey", "User")
+powershell -ExecutionPolicy Bypass -File scripts\setup_windows.ps1
 ```
+
+重新打开 PowerShell 后启动：
 
 ```powershell
-cd D:\codex\LangChain-RAG-FastAPI-Service-master\backend
-.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8010
+powershell -ExecutionPolicy Bypass -File scripts\start_all_windows.ps1
 ```
+
+访问：
+
+```text
+http://127.0.0.1:3010/
+```
+
+## 日常启动
 
 ```powershell
-cd D:\codex\LangChain-RAG-FastAPI-Service-master\front
-$env:VITE_BACKEND_TARGET="http://127.0.0.1:8010"
-$env:VITE_USER_SERVICE_TARGET="http://127.0.0.1:8011"
-npm.cmd run dev -- --host 127.0.0.1 --port 3010
+powershell -ExecutionPolicy Bypass -File scripts\start_all_windows.ps1
 ```
 
-## Verification
+## 停止服务
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8010/health/live
-Invoke-RestMethod http://127.0.0.1:8010/health/ready
-Invoke-WebRequest http://127.0.0.1:3010/
+powershell -ExecutionPolicy Bypass -File scripts\stop_all_windows.ps1
 ```
+
+## 日志位置
+
+```text
+logs/django-user-service.out.log
+logs/django-user-service.err.log
+logs/fastapi-rag-service.out.log
+logs/fastapi-rag-service.err.log
+logs/vue-frontend.out.log
+logs/vue-frontend.err.log
+```
+
+## 语料说明
+
+项目内置 10 万条医疗知识卡，位于：
+
+```text
+docs/rag_test_corpus/split_100k/
+```
+
+默认直接检索这些 Markdown 语料，不需要导入向量库，不产生 embedding 导入费用。
+
+可选导入 Chroma：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\import_medical_corpus_windows.ps1
+```
+
+这个导入会调用 embedding API，可能产生费用。

@@ -27,6 +27,28 @@ export const useUserStore = defineStore('user', {
   },
   
   actions: {
+    restoreFromLocalStorage() {
+      const token = localStorage.getItem('jwt_token');
+      if (!token || token === 'test_token_for_unlogin') return false;
+
+      this.token = token;
+      this.isLogin = true;
+      if (!this.userInfo) {
+        this.userInfo = {
+          username: localStorage.getItem('username') || 'medical_rag'
+        };
+      }
+      return true;
+    },
+
+    clearLocalAuth() {
+      this.userInfo = null;
+      this.token = '';
+      this.isLogin = false;
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('username');
+    },
+
     async login(userData) {
       try {
         const TEST_USER = {
@@ -71,6 +93,7 @@ export const useUserStore = defineStore('user', {
           const token = response.data.token;
           // 将token存入到localStorage
           localStorage.setItem('jwt_token', token);
+          localStorage.setItem('username', userData.username);
           
           this.userInfo = userInfo;
           this.token = token;
