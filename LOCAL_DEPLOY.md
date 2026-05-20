@@ -3,8 +3,8 @@
 ## 第一次安装
 
 ```powershell
-git clone https://github.com/yuchen123hh/LangChain-RAG-FastAPI-Service-local.git
-cd LangChain-RAG-FastAPI-Service-local
+git clone https://github.com/yuchen123hh/Local-Medical-RAG-QA.git
+cd Local-Medical-RAG-QA
 [Environment]::SetEnvironmentVariable("DASHSCOPE_API_KEY", "你的阿里百炼APIKey", "User")
 powershell -ExecutionPolicy Bypass -File scripts\setup_windows.ps1
 ```

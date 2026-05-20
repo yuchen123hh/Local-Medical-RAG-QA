@@ -60,8 +60,8 @@ git --version
 ## 1. 克隆项目
 
 ```powershell
-git clone https://github.com/yuchen123hh/LangChain-RAG-FastAPI-Service-local.git
-cd LangChain-RAG-FastAPI-Service-local
+git clone https://github.com/yuchen123hh/Local-Medical-RAG-QA.git
+cd Local-Medical-RAG-QA
 ```
 
 ## 2. 配置 API Key
