@@ -52,7 +52,7 @@ logs/vue-frontend.err.log
 docs/rag_test_corpus/split_100k/
 ```
 
-默认直接检索这些 Markdown 语料，不需要导入向量库，不产生 embedding 导入费用。
+默认直接检索这些 Markdown 语料，不需要先导入向量库，也不会产生 embedding 导入费用。
 
 可选导入 Chroma：
 

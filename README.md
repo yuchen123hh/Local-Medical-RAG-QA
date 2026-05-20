@@ -177,7 +177,7 @@ docs/rag_test_corpus/split_100k/
 powershell -ExecutionPolicy Bypass -File scripts\import_medical_corpus_windows.ps1
 ```
 
-注意：这个脚本会调用 embedding API，可能产生费用。导入后的 Chroma 数据会保存在 `backend/data/chromadb/`，该目录不会提交到 GitHub。
+注意：这个脚本会调用 embedding API，可能产生费用。导入后的 Chroma 数据会保存在 `backend/data/chromadb/`，这个目录不会提交到 GitHub。
 
 ## API Key 和费用
 
@@ -190,7 +190,7 @@ powershell -ExecutionPolicy Bypass -File scripts\import_medical_corpus_windows.p
 
 ### 1. 登录后问答报 401 或 403
 
-确认 `backend/.env` 的 `SECRET_KEY` 和 `DjangoUserService/.env` 的 `JWT_SECRET_KEY` 完全一致。默认模板里已经一致，不要只改其中一个。
+确认 backend/.env 里的 `SECRET_KEY` 和 DjangoUserService/.env 里的 `JWT_SECRET_KEY` 完全一致。默认模板里已经一致，不要只改其中一个。
 
 ### 2. 资料库显示为空
 
