@@ -227,7 +227,7 @@ powershell -ExecutionPolicy Bypass -File scripts\start_all_windows.ps1 -BackendP
 
 ### 5. 不想使用阿里百炼
 
-可以改 `backend/.env`，把 `LLM_TYPE` 和 `EMBED_MODEL_TYPE` 换成 `OLLAMA`，并准备好本地 Ollama 模型。这个模式适合完全离线测试，但模型效果取决于本机显卡和模型大小。
+可以改 `backend/.env`，把 `LLM_TYPE` 和 `EMBED_MODEL_TYPE` 都设置为 `OLLAMA`，并提前准备好本地 Ollama 模型。这个模式适合完全离线测试，但模型效果取决于本机显卡和模型大小。
 
 ## 重要声明
 
